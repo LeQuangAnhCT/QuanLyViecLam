@@ -5,7 +5,7 @@ import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/c
 
 const props = defineProps({ user: { type: Object, required: true } })
 const w = useWorkspace(props.user)
-const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, busy, loading, error, message, current, manager, canSchedule, repo } = w
+const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, clockRecords, clockUnavailable, clockError, busy, loading, error, message, current, manager, canSchedule, repo } = w
 const tab = ref(isAdmin ? 'approval' : 'calendar'), month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), selectedDate = ref(localDate(new Date())), modal = ref('')
 const form = reactive({ company_name: '', address: '', phone: '', email: '' }), freelancer = reactive({ display_name: props.user.user_metadata?.full_name || '', specialty: '', visible: false })
 const inviteEmail = ref(''), reasons = reactive({}), editingShiftId = ref('')
@@ -16,6 +16,17 @@ const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'ma
 const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
 const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'))
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
+const clockRecordFor = shiftId => clockRecords.value.find(r => r.shift_id === shiftId)
+const canClockIn = item => {
+  if (clockUnavailable.value || clockRecordFor(item.id)) return false
+  const now=Date.now()
+  return now >= new Date(item.starts_at).getTime()-3600000 && now<=new Date(item.ends_at).getTime()+12*3600000
+}
+const clockStatus = item => {
+  const row=clockRecordFor(item.id)
+  return row ? (row.checked_out_at ? 'Đã chấm công ra' : 'Đã chấm công vào') : 'Chưa chấm công'
+}
+const clockDisplay = stamp => stamp ? new Date(stamp).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : ''
 const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đổi lịch', cancelled:'Ca đã hủy'})[event] || 'Thông báo'
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
@@ -120,6 +131,7 @@ async function saveShift() {
       '23503': 'Nhân viên không thuộc công ty này. Hãy tải lại danh sách thành viên.',
       '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
       '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
+      'P4511': 'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
       'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
     }
     error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
@@ -135,7 +147,41 @@ async function saveShift() {
     error.value = 'Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
   } finally { busy.value = false }
 }
-async function removeShift(item) { if (!canSchedule.value || !window.confirm(`Xóa ca "${item.title}" của ${nameOf(item.user_id)}?`)) return; await perform(() => repo.deleteShift(item.id, companyId.value), 'Đã xóa ca làm việc.') }
+async function removeShift(item) {
+  if (!canSchedule.value || busy.value) return
+  if (clockRecordFor(item.id)) { error.value='Ca đã được chấm công nên không thể hủy.'; return }
+  if (!window.confirm(`Hủy ca "${item.title}" của ${nameOf(item.user_id)}? Nhân viên sẽ nhận thông báo nếu Supabase đã kích hoạt thông báo.`)) return
+  busy.value=true; error.value=''; message.value=''
+  try {
+    await repo.deleteShift(item.id,companyId.value)
+    modal.value=''
+    message.value='Đã hủy ca làm việc.'
+    try { await w.refreshCompany() }
+    catch { error.value='Đã hủy ca nhưng chưa tải lại được lịch. Hãy làm mới trang.' }
+  } catch(e) {
+    error.value=e?.code==='P4510' || e?.code==='23503'
+      ? 'Ca đã được chấm công nên không thể hủy.'
+      : (e?.message || 'Không thể hủy ca này.')
+  } finally { busy.value=false }
+}
+async function clockAction(item, action) {
+  if (isAdmin || manager.value || busy.value || clockUnavailable.value) return
+  busy.value=true; error.value=''; message.value=''
+  try {
+    if (action==='in') await repo.clockIn(item.id)
+    else await repo.clockOut(item.id)
+    message.value=action==='in'?'Chấm công vào thành công.':'Chấm công ra thành công.'
+    await w.refreshCompany()
+  } catch(e) {
+    const messages={
+      P4520:'Chỉ Staff được phân ca mới có thể chấm công.',
+      P4521:'Chỉ chấm công từ 1 giờ trước ca đến 12 giờ sau khi ca kết thúc.',
+      P4522:'Ca chưa chấm công vào, hoặc thao tác này đã được thực hiện.',
+      PGRST202:'Supabase chưa có hàm chấm công. Hãy chạy shift_attendance.sql.'
+    }
+    error.value=messages[e?.code] || e?.message || 'Không thể chấm công.'
+  } finally { busy.value=false }
+}
 function saveApplication() { perform(() => repo.insert('company_applications',{...form, applicant_id:props.user.id}), 'Đã gửi đăng ký công ty.') }
 function saveProfile() { perform(() => repo.upsert('freelancer_profiles',{user_id:props.user.id,...freelancer}), 'Đã lưu hồ sơ freelancer.') }
 async function markRead(notification) {
@@ -145,13 +191,28 @@ async function markRead(notification) {
     notification.read_at = new Date().toISOString()
   } catch(e) { error.value = e?.message || 'Không thể đánh dấu thông báo đã đọc.' }
 }
-function onWindowFocus() { if (!isAdmin && tab.value==='notifications') w.refreshNotifications() }
+function onWindowFocus() {
+  if (isAdmin || document.visibilityState==='hidden') return
+  w.refreshNotifications()
+  if (tab.value==='calendar' || tab.value==='attendance') w.refreshCompany().catch(()=>{})
+}
+let notificationPoll = null
 function changeCompany() { modal.value=''; error.value=''; message.value=''; w.refreshCompany().catch(e => { error.value = e?.message || 'Không tải được công ty.' }) }
 watch(profile, p => { if(p) Object.assign(freelancer, {display_name:p.display_name,specialty:p.specialty,visible:p.visible}) })
 watch(tabs, available => { if (!available.some(item => item[0] === tab.value)) tab.value = isAdmin ? 'approval' : 'calendar' })
 watch(tab, next => { if (next === 'notifications') w.refreshNotifications() })
-onMounted(() => { w.perform(() => Promise.resolve(), ''); window.addEventListener('focus',onWindowFocus) })
-onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
+onMounted(() => {
+  w.perform(() => Promise.resolve(), '')
+  window.addEventListener('focus',onWindowFocus)
+  // Keep the unread badge fresh without requiring users to open the inbox.
+  notificationPoll = window.setInterval(() => {
+    if (!isAdmin && document.visibilityState==='visible') w.refreshNotifications()
+  },60000)
+})
+onUnmounted(() => {
+  window.removeEventListener('focus',onWindowFocus)
+  if (notificationPoll) window.clearInterval(notificationPoll)
+})
 </script>
 
 <template>
