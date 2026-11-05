@@ -5,12 +5,26 @@ import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/c
 
 const props = defineProps({ user: { type: Object, required: true } })
 const w = useWorkspace(props.user)
-const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, clockRecords, clockUnavailable, clockError, busy, loading, error, message, current, manager, canSchedule, repo } = w
+const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, clockRecords, clockUnavailable, clockError, payroll, payrollUnavailable, payrollError, busy, loading, error, message, current, manager, canSchedule, repo } = w
 const tab = ref(isAdmin ? 'approval' : 'calendar'), month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), selectedDate = ref(localDate(new Date())), modal = ref('')
 const form = reactive({ company_name: '', address: '', phone: '', email: '' }), freelancer = reactive({ display_name: props.user.user_metadata?.full_name || '', specialty: '', visible: false })
 const inviteEmail = ref(''), reasons = reactive({}), editingShiftId = ref('')
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', user_ids: [] })
 const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
+const reportMonth = ref(new Date(new Date().getFullYear(),new Date().getMonth(),1))
+const reportMonthText = computed(() => localDate(reportMonth.value))
+const monthlyReportTotals = computed(() => ({
+  scheduled: payroll.value.reduce((a,row)=>a+Number(row.scheduled_shifts||0),0),
+  completed: payroll.value.reduce((a,row)=>a+Number(row.completed_shifts||0),0),
+  total: payroll.value.reduce((a,row)=>a+Number(row.estimated_total_vnd||0),0)
+}))
+function changeReportMonth(delta) { reportMonth.value = new Date(reportMonth.value.getFullYear(),reportMonth.value.getMonth()+delta,1) }
+const typeName = type => type==='employee' ? 'Nhân viên chính thức' : type==='freelancer' ? 'Nhân viên thời vụ' : 'Chưa thiết lập'
+const typeShort = type => type==='employee' ? 'Chính thức' : type==='freelancer' ? 'Thời vụ' : 'Chưa thiết lập'
+const ownCompensation = computed(() => compensation.value.find(p=>p.user_id===props.user.id))
+const ownScheduled = computed(() => shifts.value.filter(s => localDate(new Date(s.starts_at)).slice(0,7)===reportMonthText.value.slice(0,7)))
+const ownCompleted = computed(() => ownScheduled.value.filter(s => clockRecords.value.some(a=>a.shift_id===s.id && a.checked_out_at)))
+const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) + Number(ownCompensation.value?.show_rate_vnd||0)*ownCompleted.value.length)
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
 const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
 const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
@@ -34,7 +48,8 @@ const activeApplication = computed(() => applications.value.some(a => a.status =
 const tabs = computed(() => {
   if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Công ty'],['accounts','Tài khoản']]
   const result = [['calendar',manager.value ? 'Phân ca' : 'Lịch của tôi']]
-  if (!manager.value) result.push(['attendance','Chấm công'], ['notifications','Thông báo'])
+  if (!manager.value) result.push(['attendance','Chấm công'], ['income','Thu nhập'], ['notifications','Thông báo'])
+  else result.push(['payroll','Bảng công & lương'])
   result.push(['people',manager.value ? 'Quản lý nhân sự' : 'Đồng nghiệp'],['community', manager.value ? 'Tuyển nhân sự' : 'Cộng đồng'])
   if (!hasManagedCompany.value) result.push(['registration', activeApplication.value ? 'Đơn đăng ký' : 'Đăng ký công ty'])
   return result
@@ -47,8 +62,8 @@ const memberGroups = computed(() => {
   return [
     { label:'Quản lý', items:members.value.filter(m=>m.role==='manager') },
     { label:'Nhân viên chính thức', items:members.value.filter(m=>m.role!=='manager' && payFor(m.user_id)?.employment_type==='employee') },
-    { label:'Freelancer', items:members.value.filter(m=>m.role!=='manager' && payFor(m.user_id)?.employment_type==='freelancer') },
-    { label:'Chưa phân loại', items:members.value.filter(m=>m.role!=='manager' && !payFor(m.user_id)) }
+    { label:'Nhân viên thời vụ', items:members.value.filter(m=>m.role!=='manager' && payFor(m.user_id)?.employment_type==='freelancer') },
+    { label:'Chưa thiết lập loại nhân sự', items:members.value.filter(m=>m.role!=='manager' && !payFor(m.user_id)) }
   ].filter(group=>group.items.length)
 })
 const money = value => `${new Intl.NumberFormat('vi-VN').format(Number(value))} ₫`
@@ -202,7 +217,12 @@ let notificationPoll = null
 function changeCompany() { modal.value=''; error.value=''; message.value=''; w.refreshCompany().catch(e => { error.value = e?.message || 'Không tải được công ty.' }) }
 watch(profile, p => { if(p) Object.assign(freelancer, {display_name:p.display_name,specialty:p.specialty,visible:p.visible}) })
 watch(tabs, available => { if (!available.some(item => item[0] === tab.value)) tab.value = isAdmin ? 'approval' : 'calendar' })
-watch(tab, next => { if (next === 'notifications') w.refreshNotifications() })
+watch(tab, next => {
+  if (next === 'notifications') w.refreshNotifications()
+  if (next === 'payroll') w.refreshPayroll(reportMonthText.value)
+})
+watch(reportMonth, () => { if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value) })
+watch(companyId, () => { if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value) })
 onMounted(() => {
   w.perform(() => Promise.resolve(), '')
   window.addEventListener('focus',onWindowFocus)
