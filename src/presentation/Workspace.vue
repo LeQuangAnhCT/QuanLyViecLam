@@ -46,15 +46,22 @@ function savePay() {
   if (payForm.show_rate_vnd === '' || (base !== null && payForm.monthly_base_vnd === '') || !Number.isSafeInteger(rate) || rate < 0 || (base !== null && (!Number.isSafeInteger(base) || base < 0))) { error.value='Hãy nhập số tiền hợp lệ, không âm.'; return }
   perform(()=>repo.upsert('member_compensation',{company_id:companyId.value,user_id:payForm.user_id,employment_type:payForm.employment_type,monthly_base_vnd:base,show_rate_vnd:rate,updated_at:new Date().toISOString()}),'Đã lưu thông tin lương.',true)
 }
-const shiftsOn = day => shifts.value.filter(s => localDate(new Date(s.starts_at)) === localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)))
+function shiftsForDate(dateText) {
+  const start = new Date(dateText + 'T00:00:00')
+  const end = new Date(start)
+  end.setDate(end.getDate() + 1)
+  return shifts.value.filter(s => new Date(s.starts_at) < end && new Date(s.ends_at) > start)
+}
+const shiftsOn = day => shiftsForDate(localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)))
 const monthShifts = computed(() => shifts.value.filter(s => { const d = new Date(s.starts_at); return d.getFullYear() === month.value.getFullYear() && d.getMonth() === month.value.getMonth() }))
 const plannedHours = computed(() => monthShifts.value.reduce((sum, s) => sum + Number(hours(s)), 0).toFixed(1))
 const upcomingCount = computed(() => shifts.value.filter(s => new Date(s.starts_at) > new Date()).length)
-const selectedShifts = computed(() => shifts.value.filter(s => localDate(new Date(s.starts_at)) === selectedDate.value).sort((a,b) => new Date(a.starts_at) - new Date(b.starts_at)))
+const selectedShifts = computed(() => shiftsForDate(selectedDate.value).sort((a,b) => new Date(a.starts_at) - new Date(b.starts_at)))
 const selectedDateLabel = computed(() => new Date(selectedDate.value + 'T12:00:00').toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
 const timeOf = stamp => new Date(stamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca làm việc. Chọn để xem chi tiết.`
 function chooseDay(day) { selectedDate.value = localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day)) }
+function goToToday() { month.value = new Date(new Date().getFullYear(),new Date().getMonth(),1); selectedDate.value = localDate(new Date()) }
 function createShiftOnSelectedDay() {
   if (!canSchedule.value) return
   const [y,m,d] = selectedDate.value.split('-').map(Number)
@@ -113,7 +120,7 @@ onMounted(() => w.perform(() => Promise.resolve(), ''))
             </section>
             <div class="calendar-controls">
               <div><h2>{{ month.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}) }}</h2><p>{{ canSchedule ? 'Chọn một ngày để xem ca hoặc phân công nhân sự.' : 'Chọn ngày để xem giờ và địa điểm làm việc của bạn.' }}</p></div>
-              <div class="button-group"><button type="button" aria-label="Tháng trước" @click="changeMonth(-1)">‹</button><button type="button" @click="month=new Date(new Date().getFullYear(),new Date().getMonth(),1);selectedDate=localDate(new Date())">Hôm nay</button><button type="button" aria-label="Tháng sau" @click="changeMonth(1)">›</button></div>
+              <div class="button-group"><button type="button" aria-label="Tháng trước" @click="changeMonth(-1)">‹</button><button type="button" @click="goToToday">Hôm nay</button><button type="button" aria-label="Tháng sau" @click="changeMonth(1)">›</button></div>
             </div>
             <div class="calendar-wrap">
               <div class="calendar">
@@ -134,7 +141,7 @@ onMounted(() => w.perform(() => Promise.resolve(), ''))
               </div>
               <div v-if="!selectedShifts.length" class="empty day-empty">Không có ca nào trong ngày này.</div>
               <div v-for="item in selectedShifts" :key="item.id" class="row shift-detail-row">
-                <div class="shift-timing"><strong>{{ timeOf(item.starts_at) }} – {{ timeOf(item.ends_at) }}</strong><small v-if="localDate(new Date(item.ends_at))!==selectedDate">Kết thúc ngày {{ localDate(new Date(item.ends_at)) }}</small></div>
+                <div class="shift-timing"><strong>{{ timeOf(item.starts_at) }} – {{ timeOf(item.ends_at) }}</strong><small v-if="localDate(new Date(item.starts_at))!==selectedDate">Bắt đầu ngày {{ localDate(new Date(item.starts_at)) }}</small><small v-if="localDate(new Date(item.ends_at))!==selectedDate">Kết thúc ngày {{ localDate(new Date(item.ends_at)) }}</small></div>
                 <div class="shift-description"><b>{{ item.title }}</b><small>{{ item.location || 'Chưa cập nhật địa điểm' }}<template v-if="canSchedule"> · {{ nameOf(item.user_id) }}</template></small></div>
                 <button v-if="canSchedule" type="button" class="danger-quiet" :disabled="busy" :aria-label="'Xóa ca '+item.title+' của '+nameOf(item.user_id)" @click="removeShift(item)">Xóa ca</button>
               </div>
