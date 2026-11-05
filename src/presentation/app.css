@@ -176,3 +176,33 @@ button{transition:background .15s ease,border-color .15s ease}
   .add-shift-button{flex:1 1 auto}
   .company-identity{padding:12px}
 }
+
+
+/* Interactive calendar cells: empty opens a new assignment, occupied opens edit. */
+.calendar .day:not(.blank) .day-button{cursor:pointer}
+.calendar .day:not(.blank):hover .day-button{background:#f0f0f0}
+.calendar .day:not(.blank).active .day-button{background:transparent}
+.calendar .day:not(.blank) .day-button:hover .shift-chip{background:#dedede}
+.calendar-controls p{max-width:420px}
+.shift-actions{display:flex;gap:7px;align-items:center;margin-left:auto}
+.shift-actions button{min-height:36px}
+.shift-picker .row{align-items:center}
+.shift-picker .form-actions{margin-top:18px}
+.nav-unread{display:inline-grid;place-items:center;min-width:20px;height:20px;background:#e8e8e8;color:#141414;border-radius:999px;font-size:10px;font-weight:800;margin-left:6px;padding:0 6px}
+.sidebar nav button.selected .nav-unread,.mobile-nav button.selected .nav-unread{background:#2a2a2a;color:#fff}
+.notifications-section .section-title{align-items:center}
+.notification-row.unread{background:#f7f7f7;padding-inline:12px;border-radius:9px}
+.notification-row.unread .notification-head b{color:#181818}
+.notification-main{flex:1;min-width:0}
+.notification-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.notification-main p{font-size:13px;margin:9px 0 0;color:#333;overflow-wrap:anywhere}
+.notification-main small{font-size:11px}
+.read-label{font-size:12px;color:#999;white-space:nowrap}
+@media(max-width:600px){
+  .shift-actions{margin-left:0;flex-wrap:wrap}
+  .shift-detail-row .shift-actions{grid-column:1/-1}
+  .shift-actions button{flex:1}
+  .notifications-section .section-title{gap:8px}
+  .notification-row button{width:100%}
+  .calendar .day:not(.blank) .day-button{min-height:56px}
+}
