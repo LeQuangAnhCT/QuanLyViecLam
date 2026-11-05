@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hours, shiftRows, roleLabel, preferredCompanyId } from '../src/domain/calendar.js'
+import { hours, shiftRows, roleLabel, preferredCompanyId, shiftUpdate } from '../src/domain/calendar.js'
 
 const input = { title: '  Lắp sân khấu  ', location: 'Nhà hát', date: '2026-11-05', end_date: '2026-11-06', start: '22:00', end: '02:00', user_ids: ['one', 'two'] }
 const rows = shiftRows(input, 'company')
@@ -19,4 +19,10 @@ assert.doesNotThrow(() => shiftRows({ ...input, date: '2026-11-06', end_date: '2
 assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}]),'owner-company')
 assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}],'staff-company'),'owner-company')
 assert.equal(preferredCompanyId([]),'')
+const current = { ...rows[0], id: 'one-shift' }
+const changed = shiftUpdate({...input, user_ids:['one'], title:' Chương trình mới '}, 'company','one-shift',[current])
+assert.equal(changed.title,'Chương trình mới')
+assert.equal(changed.user_id,'one')
+assert.throws(()=>shiftUpdate({...input,user_ids:['one','two']},'company','one-shift',[current]),/một nhân viên/)
+assert.throws(()=>shiftUpdate({...input,user_ids:['one']},'company','one-shift',[current,{...rows[1], user_id:'one', id:'another'}]),/trùng/)
 console.log('Shift validation, duplicates, overlap, overnight hours and roles: OK')
