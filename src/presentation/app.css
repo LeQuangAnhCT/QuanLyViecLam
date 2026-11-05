@@ -206,3 +206,21 @@ button{transition:background .15s ease,border-color .15s ease}
   .notification-row button{width:100%}
   .calendar .day:not(.blank) .day-button{min-height:56px}
 }
+
+
+/* Real attendance and manager cancellation */
+.clock-actions{flex-wrap:wrap;gap:8px}
+.clock-status{color:#555;font-size:12px;font-weight:650;white-space:nowrap}
+.clock-locked{color:#555;font-size:11px;background:#eeeeee;padding:6px 9px;border-radius:7px;white-space:normal;max-width:210px}
+.attendance-summary{flex:1;min-width:0}
+.attendance-summary small{display:block;overflow-wrap:anywhere;margin-top:5px}
+.attendance-row{gap:14px;align-items:center}
+.shift-actions button:disabled{cursor:not-allowed}
+.dialog .form-actions{flex-wrap:wrap}
+.dialog .form-actions .clock-locked{margin-right:auto}
+@media(max-width:600px){
+ .attendance-row{flex-wrap:wrap;align-items:flex-start}
+ .attendance-row .clock-actions{width:100%;margin-top:4px}
+ .attendance-row .clock-actions button{width:100%}
+ .shift-actions .clock-locked{flex:1 1 100%;max-width:none}
+}

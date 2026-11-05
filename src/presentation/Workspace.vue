@@ -5,7 +5,7 @@ import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/c
 
 const props = defineProps({ user: { type: Object, required: true } })
 const w = useWorkspace(props.user)
-const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, busy, loading, error, message, current, manager, canSchedule, repo } = w
+const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, clockRecords, clockUnavailable, clockError, busy, loading, error, message, current, manager, canSchedule, repo } = w
 const tab = ref(isAdmin ? 'approval' : 'calendar'), month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), selectedDate = ref(localDate(new Date())), modal = ref('')
 const form = reactive({ company_name: '', address: '', phone: '', email: '' }), freelancer = reactive({ display_name: props.user.user_metadata?.full_name || '', specialty: '', visible: false })
 const inviteEmail = ref(''), reasons = reactive({}), editingShiftId = ref('')
@@ -16,13 +16,25 @@ const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'ma
 const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
 const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'))
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
+const clockRecordFor = shiftId => clockRecords.value.find(r => r.shift_id === shiftId)
+const editingShift = computed(() => shifts.value.find(s => s.id === editingShiftId.value))
+const canClockIn = item => {
+  if (clockUnavailable.value || clockRecordFor(item.id)) return false
+  const now=Date.now()
+  return now >= new Date(item.starts_at).getTime()-3600000 && now<=new Date(item.ends_at).getTime()+12*3600000
+}
+const clockStatus = item => {
+  const row=clockRecordFor(item.id)
+  return row ? (row.checked_out_at ? 'Đã chấm công ra' : 'Đã chấm công vào') : 'Chưa chấm công'
+}
+const clockDisplay = stamp => stamp ? new Date(stamp).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : ''
 const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đổi lịch', cancelled:'Ca đã hủy'})[event] || 'Thông báo'
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
 const tabs = computed(() => {
   if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Công ty'],['accounts','Tài khoản']]
   const result = [['calendar',manager.value ? 'Phân ca' : 'Lịch của tôi']]
-  if (!manager.value) result.push(['attendance','Giờ dự kiến'], ['notifications','Thông báo'])
+  if (!manager.value) result.push(['attendance','Chấm công'], ['notifications','Thông báo'])
   result.push(['people',manager.value ? 'Quản lý nhân sự' : 'Đồng nghiệp'],['community', manager.value ? 'Tuyển nhân sự' : 'Cộng đồng'])
   if (!hasManagedCompany.value) result.push(['registration', activeApplication.value ? 'Đơn đăng ký' : 'Đăng ký công ty'])
   return result
@@ -120,6 +132,7 @@ async function saveShift() {
       '23503': 'Nhân viên không thuộc công ty này. Hãy tải lại danh sách thành viên.',
       '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
       '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
+      'P4511': 'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
       'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
     }
     error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
@@ -135,7 +148,42 @@ async function saveShift() {
     error.value = 'Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
   } finally { busy.value = false }
 }
-async function removeShift(item) { if (!canSchedule.value || !window.confirm(`Xóa ca "${item.title}" của ${nameOf(item.user_id)}?`)) return; await perform(() => repo.deleteShift(item.id, companyId.value), 'Đã xóa ca làm việc.') }
+async function removeShift(item) {
+  if (!canSchedule.value || busy.value) return
+  if (clockRecordFor(item.id)) { error.value='Ca đã được chấm công nên không thể hủy.'; return }
+  if (!window.confirm(`Hủy ca "${item.title}" của ${nameOf(item.user_id)}? Nhân viên sẽ nhận thông báo nếu Supabase đã kích hoạt thông báo.`)) return
+  busy.value=true; error.value=''; message.value=''
+  try {
+    await repo.deleteShift(item.id,companyId.value)
+    modal.value=''
+    message.value='Đã hủy ca làm việc.'
+    try { await w.refreshCompany() }
+    catch { error.value='Đã hủy ca nhưng chưa tải lại được lịch. Hãy làm mới trang.' }
+  } catch(e) {
+    error.value=e?.code==='P4510' || e?.code==='23503'
+      ? 'Ca đã được chấm công nên không thể hủy.'
+      : (e?.message || 'Không thể hủy ca này.')
+  } finally { busy.value=false }
+}
+async function clockAction(item, action) {
+  if (isAdmin || manager.value || busy.value || clockUnavailable.value) return
+  busy.value=true; error.value=''; message.value=''
+  try {
+    if (action==='in') await repo.clockIn(item.id)
+    else await repo.clockOut(item.id)
+    message.value=action==='in'?'Chấm công vào thành công.':'Chấm công ra thành công.'
+    try { await w.refreshCompany() }
+    catch { error.value='Đã ghi nhận chấm công nhưng chưa tải lại được dữ liệu. Hãy làm mới trang.' }
+  } catch(e) {
+    const messages={
+      P4520:'Chỉ Staff được phân ca mới có thể chấm công.',
+      P4521:'Chỉ chấm công từ 1 giờ trước ca đến 12 giờ sau khi ca kết thúc.',
+      P4522:'Ca chưa chấm công vào, hoặc thao tác này đã được thực hiện.',
+      PGRST202:'Supabase chưa có hàm chấm công. Hãy chạy shift_attendance.sql.'
+    }
+    error.value=messages[e?.code] || e?.message || 'Không thể chấm công.'
+  } finally { busy.value=false }
+}
 function saveApplication() { perform(() => repo.insert('company_applications',{...form, applicant_id:props.user.id}), 'Đã gửi đăng ký công ty.') }
 function saveProfile() { perform(() => repo.upsert('freelancer_profiles',{user_id:props.user.id,...freelancer}), 'Đã lưu hồ sơ freelancer.') }
 async function markRead(notification) {
@@ -145,13 +193,28 @@ async function markRead(notification) {
     notification.read_at = new Date().toISOString()
   } catch(e) { error.value = e?.message || 'Không thể đánh dấu thông báo đã đọc.' }
 }
-function onWindowFocus() { if (!isAdmin && tab.value==='notifications') w.refreshNotifications() }
+function onWindowFocus() {
+  if (isAdmin || document.visibilityState==='hidden') return
+  w.refreshNotifications()
+  if (tab.value==='calendar' || tab.value==='attendance') w.refreshCompany().catch(()=>{})
+}
+let notificationPoll = null
 function changeCompany() { modal.value=''; error.value=''; message.value=''; w.refreshCompany().catch(e => { error.value = e?.message || 'Không tải được công ty.' }) }
 watch(profile, p => { if(p) Object.assign(freelancer, {display_name:p.display_name,specialty:p.specialty,visible:p.visible}) })
 watch(tabs, available => { if (!available.some(item => item[0] === tab.value)) tab.value = isAdmin ? 'approval' : 'calendar' })
 watch(tab, next => { if (next === 'notifications') w.refreshNotifications() })
-onMounted(() => { w.perform(() => Promise.resolve(), ''); window.addEventListener('focus',onWindowFocus) })
-onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
+onMounted(() => {
+  w.perform(() => Promise.resolve(), '')
+  window.addEventListener('focus',onWindowFocus)
+  // Keep the unread badge fresh without requiring users to open the inbox.
+  notificationPoll = window.setInterval(() => {
+    if (!isAdmin && document.visibilityState==='visible') w.refreshNotifications()
+  },60000)
+})
+onUnmounted(() => {
+  window.removeEventListener('focus',onWindowFocus)
+  if (notificationPoll) window.clearInterval(notificationPoll)
+})
 </script>
 
 <template>
@@ -213,11 +276,21 @@ onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
                 <div><h2>Ca làm · {{ selectedDateLabel }}</h2><p>{{ canSchedule ? 'Lịch phân công của công ty.' : 'Các ca của chính bạn, không phải toàn bộ lịch công ty.' }}</p></div>
                 <button v-if="canSchedule" type="button" class="primary" :disabled="busy" @click="createShiftOnSelectedDay">+ Thêm ca</button>
               </div>
+              <div v-if="!canSchedule && clockError" class="notice" role="status">{{ clockError }}</div>
               <div v-if="!selectedShifts.length" class="empty day-empty">Không có ca nào trong ngày này.</div>
               <div v-for="item in selectedShifts" :key="item.id" class="row shift-detail-row">
                 <div class="shift-timing"><strong>{{ timeOf(item.starts_at) }} – {{ timeOf(item.ends_at) }}</strong><small v-if="localDate(new Date(item.starts_at))!==selectedDate">Bắt đầu ngày {{ localDate(new Date(item.starts_at)) }}</small><small v-if="localDate(new Date(item.ends_at))!==selectedDate">Kết thúc ngày {{ localDate(new Date(item.ends_at)) }}</small></div>
                 <div class="shift-description"><b>{{ item.title }}</b><small>{{ item.location || 'Chưa cập nhật địa điểm' }}<template v-if="canSchedule"> · {{ nameOf(item.user_id) }}</template></small></div>
-                <div v-if="canSchedule" class="shift-actions"><button type="button" :disabled="busy" @click="editShift(item)">Sửa ca</button><button type="button" class="danger-quiet" :disabled="busy" :aria-label="'Xóa ca '+item.title+' của '+nameOf(item.user_id)" @click="removeShift(item)">Xóa ca</button></div>
+                <div v-if="canSchedule" class="shift-actions">
+                  <span v-if="clockRecordFor(item.id)" class="clock-locked" :title="'Ca đã chấm công: '+clockDisplay(clockRecordFor(item.id).checked_in_at)">Đã chấm công · Không thể hủy</span>
+                  <button type="button" :disabled="busy" @click="editShift(item)">Sửa ca</button>
+                  <button type="button" class="danger-quiet" :disabled="busy || !!clockRecordFor(item.id)" :title="clockRecordFor(item.id)?'Ca đã chấm công không thể hủy':''" :aria-label="'Hủy ca '+item.title+' của '+nameOf(item.user_id)" @click="removeShift(item)">Hủy ca</button>
+                </div>
+                <div v-else class="shift-actions clock-actions">
+                  <span class="clock-status">{{ clockStatus(item) }}</span>
+                  <button v-if="!clockRecordFor(item.id)" type="button" class="primary" :disabled="busy || !canClockIn(item)" @click="clockAction(item,'in')">Chấm công vào</button>
+                  <button v-else-if="!clockRecordFor(item.id).checked_out_at" type="button" class="primary" :disabled="busy" @click="clockAction(item,'out')">Chấm công ra</button>
+                </div>
               </div>
             </section>
           </template>
@@ -234,7 +307,22 @@ onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
             <button v-if="!item.read_at" type="button" @click="markRead(item)">Đánh dấu đã đọc</button><span v-else class="read-label">Đã đọc</span>
           </div>
         </section>
-        <section v-if="tab==='attendance' && !manager && !isAdmin" class="surface section"><div class="section-title"><div><h2>Giờ làm dự kiến</h2><p>Chỉ tính từ ca đã phân cho bạn. Đây không phải bảng chấm công hoặc bảng lương đã thanh toán.</p></div></div><div v-if="!shifts.length" class="empty">Chưa có ca làm việc.</div><div v-for="s in shifts" :key="s.id" class="row"><div><b>{{ s.title }}</b><small>{{ nameOf(s.user_id) }} | {{ new Date(s.starts_at).toLocaleString('vi-VN') }} | {{ s.location }}</small></div><strong>{{ hours(s) }} giờ</strong></div></section>
+        <section v-if="tab==='attendance' && !manager && !isAdmin" class="surface section">
+          <div class="section-title"><div><h2>Chấm công thực tế</h2><p>Chấm công vào/ra ca được giao. Giờ dự kiến và giờ chấm công được hiển thị riêng.</p></div></div>
+          <div v-if="clockError" class="alert" role="alert">{{ clockError }}</div>
+          <div v-if="!shifts.length" class="empty">Bạn chưa được phân ca làm việc.</div>
+          <div v-for="s in shifts" :key="s.id" class="row attendance-row">
+            <div class="attendance-summary"><b>{{ s.title }}</b><small>{{ new Date(s.starts_at).toLocaleString('vi-VN') }} · {{ s.location }}</small>
+              <small>Dự kiến: {{ hours(s) }} giờ · {{ clockStatus(s) }}</small>
+              <small v-if="clockRecordFor(s.id)">Vào: {{ clockDisplay(clockRecordFor(s.id).checked_in_at) }}<template v-if="clockRecordFor(s.id).checked_out_at"> · Ra: {{ clockDisplay(clockRecordFor(s.id).checked_out_at) }}</template></small>
+            </div>
+            <div class="shift-actions clock-actions">
+              <button v-if="!clockRecordFor(s.id)" class="primary" type="button" :disabled="busy || !canClockIn(s)" @click="clockAction(s,'in')">Chấm công vào</button>
+              <button v-else-if="!clockRecordFor(s.id).checked_out_at" class="primary" type="button" :disabled="busy" @click="clockAction(s,'out')">Chấm công ra</button>
+              <span v-else class="clock-locked">Đã hoàn tất</span>
+            </div>
+          </div>
+        </section>
 
         <section v-if="tab==='people'" class="surface section people-section"><div class="section-title"><div><h2>{{ current?.name || 'Thành viên công ty' }}</h2><p>{{ manager ? 'Phân loại nhân sự và thiết lập mức lương.' : 'Danh sách thành viên của công ty đang chọn.' }}</p></div><button v-if="manager" class="primary" @click="modal='invite'">Mời nhân viên</button></div><div v-if="manager && compensationUnavailable" class="notice" role="status">Phần lương đang chờ cập nhật cơ sở dữ liệu.</div><div v-if="!members.length" class="empty">Chưa có thành viên để hiển thị.</div><div v-for="group in memberGroups" :key="group.label" class="member-group"><h3>{{ group.label }} <span>{{ group.items.length }}</span></h3><div v-for="m in group.items" :key="m.user_id" class="row member-row"><div class="member-identity"><b>{{ m.full_name }}</b><small>{{ m.email }}</small><small v-if="manager && payFor(m.user_id)">{{ payFor(m.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(m.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Theo show: {{ money(payFor(m.user_id).show_rate_vnd) }}</small></div><div class="row-actions"><span v-if="m.role==='manager' || !manager" class="badge">{{ roleLabel(m.role) }}</span><button v-if="manager && m.role!=='manager'" :disabled="busy || compensationUnavailable" @click="openPay(m)">{{ payFor(m.user_id) ? 'Sửa mức lương' : 'Thiết lập' }}</button></div></div></div></section>
 
@@ -262,7 +350,12 @@ onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
         </div>
         <div class="form-actions"><button type="button" @click="modal=''">Đóng</button><button type="button" class="primary" @click="createShiftOnSelectedDay">+ Thêm ca khác</button></div>
       </section>
-      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><label>Địa điểm<input v-model="shift.location" required maxlength="250"></label><div class="form-grid"><label>Ngày bắt đầu<input v-model="shift.date" type="date" required @change="shift.end_date=shift.date"></label><label>Buổi<select @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required></label><label>Kết thúc<input v-model="shift.end" type="time" required></label></div><label>Ngày kết thúc<input v-model="shift.end_date" type="date" required></label><fieldset><legend>Phân công nhân viên</legend><label v-if="editingShiftId">Nhân viên được giao<select :value="shift.user_ids[0]" required @change="shift.user_ids=[$event.target.value]"><option value="" disabled>Chọn nhân viên</option><option v-for="m in staffMembers" :key="m.user_id" :value="m.user_id">{{ m.full_name }} ({{ m.email }})</option></select></label><template v-else><label v-for="m in staffMembers" :key="m.user_id" class="check"><input v-model="shift.user_ids" :value="m.user_id" type="checkbox">{{ m.full_name }} ({{ m.email }})</label></template><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy || !staffMembers.length">{{ editingShiftId ? 'Lưu thay đổi' : 'Lưu phân ca' }}</button></div></form>
+      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><label>Địa điểm<input v-model="shift.location" required maxlength="250"></label><div class="form-grid"><label>Ngày bắt đầu<input v-model="shift.date" type="date" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" @change="shift.end_date=shift.date"></label><label>Buổi<select :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label><label>Kết thúc<input v-model="shift.end" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label></div><label>Ngày kết thúc<input v-model="shift.end_date" type="date" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label><fieldset><legend>Phân công nhân viên</legend><label v-if="editingShiftId">Nhân viên được giao<select :value="shift.user_ids[0]" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" @change="shift.user_ids=[$event.target.value]"><option value="" disabled>Chọn nhân viên</option><option v-for="m in staffMembers" :key="m.user_id" :value="m.user_id">{{ m.full_name }} ({{ m.email }})</option></select></label><template v-else><label v-for="m in staffMembers" :key="m.user_id" class="check"><input v-model="shift.user_ids" :value="m.user_id" type="checkbox">{{ m.full_name }} ({{ m.email }})</label></template><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions">
+          <button v-if="editingShift && !clockRecordFor(editingShiftId)" type="button" class="danger-quiet" :disabled="busy" @click="removeShift(editingShift)">Hủy ca</button>
+          <span v-if="editingShift && clockRecordFor(editingShiftId)" class="clock-locked">Ca đã chấm công, không thể hủy hoặc đổi giờ</span>
+          <button type="button" @click="modal=''">Đóng</button>
+          <button class="primary" :disabled="busy || !staffMembers.length"> {{ editingShiftId ? 'Lưu thay đổi' : 'Lưu phân ca' }}</button>
+        </div></form>
     </section></div>
   </div>
 </template>
