@@ -6,10 +6,26 @@ export function useWorkspace(user) {
   const isAdmin = user.app_metadata?.role === 'admin'
   const companies = ref([]), directory = ref([]), invitations = ref([]), companyId = ref(''), members = ref([]), shifts = ref([]), compensation = ref([]), compensationUnavailable = ref(false)
   const applications = ref([]), freelancers = ref([]), profile = ref(null), accounts = ref([]), adminCompanies = ref([]), requests = ref([]), restriction = ref(null)
+  const notifications = ref([]), notificationsUnavailable = ref(false), notificationsError = ref('')
   const busy = ref(false), loading = ref(true), error = ref(''), message = ref('')
   const current = computed(() => companies.value.find(c => c.id === companyId.value))
   const manager = computed(() => current.value?.role === 'manager')
   const canSchedule = computed(() => !isAdmin && manager.value)
+  async function refreshNotifications() {
+    if (isAdmin) return
+    try {
+      notifications.value = await repo.notifications(user.id) || []
+      notificationsUnavailable.value = false
+      notificationsError.value = ''
+    } catch(e) {
+      if (['PGRST205','42P01','PGRST116'].includes(e?.code)) {
+        notificationsUnavailable.value = true
+        notificationsError.value = 'Supabase chưa có bảng thông báo. Cần chạy supabase/shift_notifications.sql.'
+      } else {
+        notificationsError.value = e?.message || 'Không tải được thông báo.'
+      }
+    }
+  }
   let companyRequest = 0
   watch(companyId, () => { companyRequest++; members.value = []; shifts.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
   async function refresh() {
@@ -32,6 +48,7 @@ export function useWorkspace(user) {
     applications.value = apps || []; profile.value = own
     accounts.value = isAdmin ? await repo.accounts() : []
     await refreshCompany()
+    await refreshNotifications()
   }
   async function refreshCompany() {
     const id = companyId.value
@@ -53,5 +70,5 @@ export function useWorkspace(user) {
     catch (e) { error.value = e?.code === '23P01' ? 'Nhân viên đã có ca trùng giờ (có thể ở công ty khác). Hãy đổi thời gian.' : (e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'); return false }
     finally { busy.value = false; loading.value = false }
   }
-  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
+  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, refreshNotifications, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
 }
