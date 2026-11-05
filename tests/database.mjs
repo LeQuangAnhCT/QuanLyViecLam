@@ -11,7 +11,7 @@ const outsider = '44444444-4444-4444-8444-444444444444';
 await db.exec(`
   create role authenticated;
   create schema auth;
-  create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}');
+  create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, last_sign_in_at timestamptz default now(), raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}');
   create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
   create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;
   grant usage on schema auth to authenticated;
@@ -23,7 +23,7 @@ await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta
  ($2,'manager@example.com',now(),'{"full_name":"Manager"}','{}'),
  ($3,'staff@example.com',now(),'{"full_name":"Staff"}','{}'),
  ($4,'other@example.com',now(),'{"full_name":"Other"}','{}')`,[admin,manager,staff,outsider]);
-for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql']) {
+for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql']) {
   await db.exec(await readFile(new URL('../'+file,import.meta.url),'utf8'));
 }
 async function login(id,role='staff',email='') {
@@ -49,9 +49,12 @@ await db.query('select public.request_company_membership($1)',[company]);
 await expectDenied(()=>db.query('select public.review_join_request($1,$2,true)',[company,staff]));
 await login(manager,'staff','manager@example.com');
 await db.query('select public.review_join_request($1,$2,true)',[company,staff]);
+await db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'employee',8000000,500000)",[company,staff]);
+await expectDenied(()=>db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'freelancer',1,500000)",[company,manager]));
 await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Show',now(),now()+interval '4 hours')",[company,staff]);
 await db.query("insert into public.company_invitations(company_id,email) values($1,'other@example.com')",[company]);
 await login(outsider,'staff','other@example.com');
+assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Unauthorized',now(),now()+interval '1 hour')",[company,staff]));
 assert.equal((await db.query('select * from public.company_members where company_id=$1',[company])).rows.length,0);
@@ -60,9 +63,20 @@ assert.equal(invitation.rows.length,1);
 await db.query('select public.accept_company_invitation($1)',[invitation.rows[0].id]);
 assert.equal((await db.query('select * from public.company_members where company_id=$1 and user_id=$2',[company,outsider])).rows.length,1);
 await login(staff,'staff','staff@example.com');
+assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);
+assert.equal((await db.query('update public.member_compensation set show_rate_vnd=1 returning *')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,1);
 await expectDenied(()=>db.query('select public.admin_set_account_disabled($1,true,$2)',[manager,'Không hợp lệ']));
 await login(admin,'admin','admin@example.com');
+assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
+assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);
+assert.equal((await db.query('select * from public.planned_attendance')).rows.length,0);
+await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Unauthorized',now(),now()+interval '1 hour')",[company,staff]));
+await expectDenied(()=>db.query('select public.admin_add_company_member($1,$2)',[company,'staff@example.com']));
+const listing = await db.query('select * from public.admin_company_directory()');
+assert.equal(listing.rows.length,1);
+assert.equal(listing.rows[0].manager_email,'manager@example.com');
+assert.equal((await db.query('select * from public.admin_list_accounts()')).rows.length,4);
 await db.query('select public.admin_set_account_disabled($1,true,$2)',[staff,'Kiểm thử']);
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);

@@ -1,17 +1,28 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { repository as repo } from '../infrastructure/repository'
 
 export function useWorkspace(user) {
   const isAdmin = user.app_metadata?.role === 'admin'
-  const companies = ref([]), directory = ref([]), invitations = ref([]), companyId = ref(''), members = ref([]), shifts = ref([])
-  const applications = ref([]), freelancers = ref([]), profile = ref(null), accounts = ref([]), requests = ref([]), restriction = ref(null)
+  const companies = ref([]), directory = ref([]), invitations = ref([]), companyId = ref(''), members = ref([]), shifts = ref([]), compensation = ref([]), compensationUnavailable = ref(false)
+  const applications = ref([]), freelancers = ref([]), profile = ref(null), accounts = ref([]), adminCompanies = ref([]), requests = ref([]), restriction = ref(null)
   const busy = ref(false), loading = ref(true), error = ref(''), message = ref('')
   const current = computed(() => companies.value.find(c => c.id === companyId.value))
   const manager = computed(() => current.value?.role === 'manager')
-  const canSchedule = computed(() => isAdmin || manager.value)
+  const canSchedule = computed(() => !isAdmin && manager.value)
+  let companyRequest = 0
+  watch(companyId, () => { companyRequest++; members.value = []; shifts.value = []; requests.value = []; compensation.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
   async function refresh() {
     restriction.value = await repo.restriction(user.id)
     if (restriction.value?.disabled) return
+    if (isAdmin) {
+      const results = await Promise.allSettled([repo.applications(), repo.accounts(), repo.adminCompanies()])
+      if (results[0].status === 'fulfilled') applications.value = results[0].value || []
+      if (results[1].status === 'fulfilled') accounts.value = results[1].value || []
+      if (results[2].status === 'fulfilled') adminCompanies.value = results[2].value || []
+      const failed = results.find(result => result.status === 'rejected')
+      if (failed) throw failed.reason
+      return
+    }
     const [all, memberships, invites, apps, own] = await Promise.all([repo.companies(), repo.memberships(user.id), repo.invitations(), repo.applications(), repo.profile(user.id)])
     directory.value = all || []
     companies.value = directory.value.map(c => ({ ...c, role: memberships?.find(m => m.company_id === c.id)?.role })).filter(c => isAdmin || c.role)
@@ -23,10 +34,17 @@ export function useWorkspace(user) {
     await refreshCompany()
   }
   async function refreshCompany() {
-    if (!companyId.value) { members.value = []; shifts.value = []; requests.value = []; return }
-    const [roster, schedule] = await Promise.all([repo.roster(companyId.value), repo.shifts(companyId.value)])
+    const id = companyId.value
+    const request = ++companyRequest
+    members.value = []; shifts.value = []; requests.value = []; compensation.value = []; compensationUnavailable.value = false
+    if (!id) return
+    const [roster, schedule, pending, pay] = await Promise.all([repo.roster(id), repo.shifts(id), manager.value ? repo.requests(id) : Promise.resolve([]), manager.value ? repo.compensation(id).then(value => ({value})).catch(error => ({error})) : Promise.resolve({value: []})])
+    if (request !== companyRequest || id !== companyId.value) return
     members.value = roster || []; shifts.value = schedule || []
-    requests.value = manager.value ? await repo.requests(companyId.value) : []
+    requests.value = pending || []
+    if (pay.error && !['42P01','PGRST205'].includes(pay.error.code)) throw pay.error
+    compensationUnavailable.value = !!pay.error
+    compensation.value = pay.value || []
   }
   async function perform(fn, success) {
     busy.value = true; error.value = ''; message.value = ''
@@ -34,5 +52,5 @@ export function useWorkspace(user) {
     catch (e) { error.value = e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'; return false }
     finally { busy.value = false; loading.value = false }
   }
-  return { isAdmin, companies, directory, invitations, companyId, members, shifts, applications, freelancers, profile, accounts, requests, restriction, busy, loading, error, message, current, manager, canSchedule, refresh, perform, repo }
+  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, busy, loading, error, message, current, manager, canSchedule, refresh, perform, repo }
 }
