@@ -10,6 +10,11 @@ export const repository = {
   roster: id => data(supabase.rpc('company_roster', { p_company: id })),
   compensation: id => data(supabase.from('member_compensation').select('*').eq('company_id', id)),
   shifts: id => data(supabase.from('company_shifts').select('*').eq('company_id', id).order('starts_at')),
+  async deleteShift(id, companyId) {
+    const removed = await data(supabase.from('company_shifts').delete().eq('id', id).eq('company_id', companyId).select('id'))
+    if (!removed?.length) throw new Error('Không thể xóa ca này. Hãy kiểm tra quyền quản lý.')
+    return removed
+  },
   applications: () => data(supabase.from('company_applications').select('*').order('created_at', { ascending: false })),
   freelancers: () => data(supabase.from('freelancer_profiles').select('*')),
   profile: id => data(supabase.from('freelancer_profiles').select('*').eq('user_id', id).maybeSingle()),

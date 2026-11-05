@@ -10,7 +10,7 @@ export function useWorkspace(user) {
   const manager = computed(() => current.value?.role === 'manager')
   const canSchedule = computed(() => !isAdmin && manager.value)
   let companyRequest = 0
-  watch(companyId, () => { companyRequest++; members.value = []; shifts.value = []; requests.value = []; compensation.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
+  watch(companyId, () => { companyRequest++; members.value = []; shifts.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
   async function refresh() {
     restriction.value = await repo.restriction(user.id)
     if (restriction.value?.disabled) return
@@ -30,18 +30,18 @@ export function useWorkspace(user) {
     invitations.value = (invites || []).filter(i => i.email.toLowerCase() === user.email?.toLowerCase())
     applications.value = apps || []; profile.value = own
     accounts.value = isAdmin ? await repo.accounts() : []
-    freelancers.value = manager.value ? (await repo.freelancers()).filter(f => f.visible && f.user_id !== user.id) : []
     await refreshCompany()
   }
   async function refreshCompany() {
     const id = companyId.value
     const request = ++companyRequest
-    members.value = []; shifts.value = []; requests.value = []; compensation.value = []; compensationUnavailable.value = false
+    members.value = []; shifts.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false
     if (!id) return
-    const [roster, schedule, pending, pay] = await Promise.all([repo.roster(id), repo.shifts(id), manager.value ? repo.requests(id) : Promise.resolve([]), manager.value ? repo.compensation(id).then(value => ({value})).catch(error => ({error})) : Promise.resolve({value: []})])
+    const [roster, schedule, pending, pay, availableFreelancers] = await Promise.all([repo.roster(id), repo.shifts(id), manager.value ? repo.requests(id) : Promise.resolve([]), manager.value ? repo.compensation(id).then(value => ({value})).catch(error => ({error})) : Promise.resolve({value: []}), manager.value ? repo.freelancers() : Promise.resolve([])])
     if (request !== companyRequest || id !== companyId.value) return
     members.value = roster || []; shifts.value = schedule || []
     requests.value = pending || []
+    freelancers.value = (availableFreelancers || []).filter(f => f.visible && f.user_id !== user.id)
     if (pay.error && !['42P01','PGRST205'].includes(pay.error.code)) throw pay.error
     compensationUnavailable.value = !!pay.error
     compensation.value = pay.value || []
@@ -49,8 +49,8 @@ export function useWorkspace(user) {
   async function perform(fn, success) {
     busy.value = true; error.value = ''; message.value = ''
     try { await fn(); await refresh(); message.value = success; return true }
-    catch (e) { error.value = e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'; return false }
+    catch (e) { error.value = e?.code === '23P01' ? 'Nhân viên đã có ca trùng giờ (có thể ở công ty khác). Hãy đổi thời gian.' : (e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'); return false }
     finally { busy.value = false; loading.value = false }
   }
-  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, busy, loading, error, message, current, manager, canSchedule, refresh, perform, repo }
+  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
 }
