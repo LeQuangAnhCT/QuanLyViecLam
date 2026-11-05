@@ -27,3 +27,12 @@ export function preferredCompanyId(companies, previousId = '') {
   if (owned.length) return owned.find(c => c.id === previousId)?.id || owned[0].id
   return companies.find(c => c.id === previousId)?.id || companies[0]?.id || ''
 }
+
+/** Validate an edit without detecting the original row as an overlap. */
+export function shiftUpdate(values, companyId, shiftId, existingShifts = []) {
+  if (!shiftId) throw new Error('Không tìm thấy ca làm cần sửa.')
+  const rows = shiftRows(values, companyId, existingShifts.filter(s => s.id !== shiftId))
+  if (rows.length !== 1) throw new Error('Mỗi lần cập nhật chỉ chọn một nhân viên.')
+  const { company_id, ...changes } = rows[0]
+  return changes
+}
