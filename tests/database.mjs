@@ -27,6 +27,10 @@ await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta
 for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql','supabase/shift_attendance.sql','supabase/staff_business.sql']) {
   await db.exec(await readFile(new URL('../'+file,import.meta.url),'utf8'));
 }
+// The one-paste production upgrade must also work on a database that already
+// received the individual migrations. All existing data must be preserved.
+await db.exec(await readFile(new URL('../supabase/production_upgrade.sql',import.meta.url),'utf8'));
+
 async function login(id,role='staff',email='') {
   await db.exec('reset role');
   await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:id,email,app_metadata:{role}})]);
