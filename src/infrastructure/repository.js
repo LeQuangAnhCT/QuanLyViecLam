@@ -10,10 +10,14 @@ export const repository = {
   roster: id => data(supabase.rpc('company_roster', { p_company: id })),
   compensation: id => data(supabase.from('member_compensation').select('*').eq('company_id', id)),
   shifts: id => data(supabase.from('company_shifts').select('*').eq('company_id', id).order('starts_at')),
+  attendance: id => data(supabase.from('shift_attendance')
+    .select('shift_id,company_id,user_id,checked_in_at,checked_out_at').eq('company_id',id)),
+  clockIn: shiftId => data(supabase.rpc('clock_in_shift',{p_shift:shiftId})),
+  clockOut: shiftId => data(supabase.rpc('clock_out_shift',{p_shift:shiftId})),
   async updateShift(id, companyId, changes) {
     const changed = await data(supabase.from('company_shifts').update(changes)
       .eq('id', id).eq('company_id', companyId).select('*'))
-    if (changed?.length !== 1) throw new Error('Không thể cập nhật ca. Hãy kiểm tra quyền của chủ công ty.')
+    if (changed?.length !== 1) throw new Error('Không thể cập nhật ca. Hãy kiểm tra quyền Manager và trạng thái chấm công.')
     return changed[0]
   },
   notifications: userId => data(supabase.from('shift_notifications')
@@ -25,7 +29,7 @@ export const repository = {
   },
   async deleteShift(id, companyId) {
     const removed = await data(supabase.from('company_shifts').delete().eq('id', id).eq('company_id', companyId).select('id'))
-    if (!removed?.length) throw new Error('Không thể xóa ca này. Hãy kiểm tra quyền quản lý.')
+    if (!removed?.length) throw new Error('Không thể hủy ca. Hãy kiểm tra quyền Manager hoặc tình trạng chấm công.')
     return removed
   },
   applications: () => data(supabase.from('company_applications').select('*').order('created_at', { ascending: false })),
