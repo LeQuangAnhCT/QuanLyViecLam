@@ -1,6 +1,6 @@
 export const localDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
 export const hours = (shift) => ((new Date(shift.ends_at) - new Date(shift.starts_at)) / 3600000).toFixed(2)
-export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Quản lý công ty', staff: 'Nhân viên' })[role] || 'Nhân viên'
+export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Chủ công ty', staff: 'Nhân viên' })[role] || 'Nhân viên'
 
 export function shiftRows(values, companyId, existingShifts = []) {
   const users = [...new Set((values.user_ids || []).filter(Boolean))]
@@ -23,6 +23,7 @@ export function shiftRows(values, companyId, existingShifts = []) {
 
 // Prefer the company a person owns/manages over secondary staff memberships.
 export function preferredCompanyId(companies, previousId = '') {
-  if (companies.some(c => c.id === previousId)) return previousId
-  return companies.find(c => c.role === 'manager')?.id || companies[0]?.id || ''
+  const owned = companies.filter(c => c.role === 'manager')
+  if (owned.length) return owned.find(c => c.id === previousId)?.id || owned[0].id
+  return companies.find(c => c.id === previousId)?.id || companies[0]?.id || ''
 }
