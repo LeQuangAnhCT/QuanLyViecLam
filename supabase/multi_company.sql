@@ -96,9 +96,8 @@ grant select on public.planned_attendance to authenticated;
 create or replace function public.company_roster(p_company uuid)
 returns table(user_id uuid, full_name text, email text, role text)
 language sql stable security definer set search_path=public as $$
-  select m.user_id, coalesce(p.full_name,u.email), u.email::text, m.role
+  select m.user_id, coalesce(u.raw_user_meta_data->>'full_name',u.email::text), u.email::text, m.role
   from public.company_members m join auth.users u on u.id=m.user_id
-  left join public.profiles p on p.id=m.user_id
   where m.company_id=p_company and public.is_company_member(p_company)
 $$;
 revoke all on function public.company_roster(uuid) from public;
