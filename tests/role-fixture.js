@@ -23,7 +23,16 @@ const pay = [{company_id:'company',user_id:'staff',employment_type:'employee',mo
 Object.assign(repo, {
   auth: { signOut: async () => {} }, restriction: async () => null,
   companies: async () => role === 'manager' ? [c,c2] : [c], memberships: async () => role === 'admin' ? [] : role === 'manager' ? [{ company_id:'company', role },{ company_id:'company-2', role:'staff' }] : [{ company_id:'company', role }], invitations: async () => [],
-  roster: async id => id === 'company-2' ? [{ user_id:'other',full_name:'Võ Lan',email:'lan@example.test',role:'manager' }] : [...roster], shifts: async id => schedule.filter(s=>s.company_id===id && (role==='manager' || s.user_id===user.id)), attendance: async id=>attendance.filter(a=>a.company_id===id && (role==='manager'||a.user_id===user.id)), clockIn: async id=>{ const shift=schedule.find(s=>s.id===id);attendance.push({shift_id:id,company_id:shift.company_id,user_id:shift.user_id,checked_in_at:new Date().toISOString(),checked_out_at:null}) }, clockOut: async id=>{const a=attendance.find(a=>a.shift_id===id); if(a)a.checked_out_at=new Date().toISOString()}, compensation: async id => pay.filter(p=>p.company_id===id), applications: async () => role === 'manager' ? [] : [...apps],
+  roster: async id => id === 'company-2' ? [{ user_id:'other',full_name:'Võ Lan',email:'lan@example.test',role:'manager' }] : [...roster], shifts: async id => schedule.filter(s=>s.company_id===id && (role==='manager' || s.user_id===user.id)), attendance: async id=>attendance.filter(a=>a.company_id===id && (role==='manager'||a.user_id===user.id)), clockIn: async id=>{ const shift=schedule.find(s=>s.id===id);attendance.push({shift_id:id,company_id:shift.company_id,user_id:shift.user_id,checked_in_at:new Date().toISOString(),checked_out_at:null}) }, clockOut: async id=>{const a=attendance.find(a=>a.shift_id===id); if(a)a.checked_out_at=new Date().toISOString()}, compensation: async id => pay.filter(p=>p.company_id===id),
+  staffSummary: async (id, month) => pay.filter(p=>p.company_id===id).map(p=>{
+    const userRow=roster.find(m=>m.user_id===p.user_id)
+    const assigned=schedule.filter(sh=>sh.user_id===p.user_id && sh.company_id===id && sh.starts_at.slice(0,7)===month.slice(0,7))
+    const completed=assigned.filter(sh=>attendance.some(a=>a.shift_id===sh.id && a.checked_out_at))
+    return {user_id:p.user_id,full_name:userRow?.full_name||'Nhân viên',email:userRow?.email||'',employment_type:p.employment_type,
+      monthly_base_vnd:p.monthly_base_vnd,show_rate_vnd:p.show_rate_vnd,
+      scheduled_shifts:assigned.length,completed_shifts:completed.length,worked_hours:0,
+      estimated_total_vnd:Number(p.monthly_base_vnd||0)+Number(p.show_rate_vnd)*completed.length}
+  }), applications: async () => role === 'manager' ? [] : [...apps],
   profile: async () => null, notifications: async id => notifications.filter(n=>n.user_id===id), markNotificationRead: async id => { const n=notifications.find(x=>x.id===id); if(n)n.read_at=new Date().toISOString(); return n }, freelancers: async () => [{user_id:'free',display_name:'Phạm Huy',specialty:'Ánh sáng',visible:true}],
   accounts: async () => [{user_id:'staff',full_name:'Lê Mai',email:'staff@example.test',disabled:false}],
   adminCompanies: async () => [{...c, manager_name:'Trần Minh', manager_email:'manager@example.test'}],
