@@ -119,3 +119,31 @@ button{transition:background .15s ease,border-color .15s ease}
   .calendar .day-shift-count{font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){button,.sidebar nav button,.calendar .day{transition:none}}
+
+
+/* Desktop: the calendar can be much taller than the viewport. Keep the account
+   panel at the bottom of the visible sidebar, not the bottom of the grid row. */
+@media (min-width:801px) {
+  .app-shell { align-items:start; }
+  .sidebar {
+    position:sticky;
+    top:0;
+    align-self:start;
+    height:100vh;
+    height:100dvh;
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+    scrollbar-color:#515151 #161616;
+  }
+  .sidebar .side-bottom {
+    flex-shrink:0;
+    margin-top:auto;
+    position:sticky;
+    bottom:0;
+    z-index:1;
+    background:#161616;
+  }
+  .sidebar .side-bottom > div:last-child { min-width:0; }
+}
