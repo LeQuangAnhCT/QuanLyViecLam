@@ -20,3 +20,9 @@ export function shiftRows(values, companyId, existingShifts = []) {
     starts_at: start.toISOString(), ends_at: end.toISOString()
   }))
 }
+
+// Prefer the company a person owns/manages over secondary staff memberships.
+export function preferredCompanyId(companies, previousId = '') {
+  if (companies.some(c => c.id === previousId)) return previousId
+  return companies.find(c => c.role === 'manager')?.id || companies[0]?.id || ''
+}
