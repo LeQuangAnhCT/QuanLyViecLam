@@ -94,7 +94,8 @@ create or replace function public.protect_clocked_shift()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
   if not exists(select 1 from public.shift_attendance where shift_id=OLD.id) then
-    return case when TG_OP='DELETE' then OLD else NEW end;
+    if TG_OP='DELETE' then return OLD; end if;
+    return NEW;
   end if;
   if TG_OP='DELETE' then
     raise exception 'Không thể hủy ca đã có chấm công' using errcode='P4510';
