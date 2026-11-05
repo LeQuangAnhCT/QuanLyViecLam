@@ -14,6 +14,31 @@ Vai trò **Admin** được lấy từ **Supabase Auth app_metadata**, không l�
 
 Lưu ý: nhánh này **giữ nguyên mô hình ba vai trò hiện có** của repository để tránh làm mất quy trình công ty/nhân sự. Nếu sản phẩm cuối chỉ cần một Admin và tất cả tài khoản còn lại là Staff, cần thiết kế lại quy trình đăng ký công ty và phân ca trước khi loại bỏ Manager.
 
+## Phân loại nhân viên và nghiệp vụ tiền công
+
+Cả hai loại đều có **role Staff**. Loại hợp đồng là thuộc tính riêng theo công ty,
+chỉ **Manager** được thay đổi trong mục **Quản lý nhân sự → Thiết lập/Sửa mức lương**:
+
+| Loại hiển thị | Mã lưu DB | Cách tính ước tính |
+| --- | --- | --- |
+| **Nhân viên chính thức** | `employee` | Lương cơ bản thỏa thuận/tháng + tiền phụ cấp mỗi show *đã chấm công ra* |
+| **Nhân viên thời vụ** | `freelancer` | Chỉ tính tiền mỗi show *đã chấm công ra*; không có lương cơ bản |
+
+Giữ nguyên mã `freelancer` để **không chuyển đổi hoặc xóa dữ liệu cũ**. Nhân viên
+mới gia nhập mặc định được tạo bản ghi lương **thời vụ, đơn giá 0₫** cho tới khi
+Manager thiết lập mức phù hợp. Staff chỉ xem được mức lương và thu nhập ước tính
+của chính họ.
+
+Menu **Bảng công & lương** của Manager xem theo tháng, phân biệt ca đã phân và ca
+hoàn tất chấm công. Menu **Thu nhập** của Staff cũng có thống kê cá nhân.
+**Các con số chỉ là ước tính theo đơn giá hiện tại**, không phải bảng lương,
+quyết toán hay tiền đã trả: chưa áp dụng thuế, bảo hiểm, tạm ứng, nghỉ phép,
+quy tắc làm thêm hoặc lịch sử điều chỉnh đơn giá. Lương tháng chưa được tính
+theo tỷ lệ ngày công hoặc số ngày bắt đầu hợp đồng.
+
+Tuyển nhân sự thời vụ loại những người đã gia nhập công ty hiện tại; người
+đã có thỏa thuận lương ở công ty khác không bị ảnh hưởng.
+
 ## Quy tắc phân ca
 
 - Chỉ Manager được tạo/sửa/hủy ca của Staff thuộc công ty đó. Nhấn ô ngày trống để tạo; ô có một ca để sửa; ô có nhiều ca để chọn ca. Có nút **Hủy ca** trong hộp sửa ca, với xác nhận trước khi hủy. Khi hủy thành công, Staff nhận thông báo từ database trigger.
@@ -49,9 +74,10 @@ Với dự án mới, chạy trong Supabase SQL Editor theo thứ tự:
 5. `supabase/member_compensation.sql`
 6. **`supabase/shift_business_rules.sql`**
 7. **`supabase/shift_notifications.sql`** (thông báo tạo/sửa/hủy ca)
-8. **`supabase/shift_attendance.sql`** (**mới**: chấm công vào/ra và khóa hủy ca đã chấm công)
+8. **`supabase/shift_attendance.sql`** (chấm công vào/ra và khóa hủy ca đã chấm công)
+9. **`supabase/staff_business.sql`** (phân loại nhân sự, báo cáo lương và quy tắc phân ca)
 
-Nếu database đã tồn tại, hãy **sao lưu trước** và kiểm tra các migration đã áp dụng. Chạy các file còn thiếu theo thứ tự 6 → 7 → **8**. Chạy file mới số 8 để kích hoạt chấm công và bảo vệ ca đã chấm công. Không cần xóa dữ liệu lịch cũ. **Merge GitHub/Vercel không tự chạy SQL trên Supabase.** Trigger chỉ chặn thao tác ghi mới, không tự xóa dữ liệu lịch cũ. Nên kiểm tra trùng ca đã tồn tại trước khi triển khai:
+Nếu database đã tồn tại, hãy **sao lưu trước** và kiểm tra các migration đã áp dụng. Bạn có thể chạy script nâng cấp tổng hợp ở phần dưới hoặc các file còn thiếu theo thứ tự 6 → 7 → 8 → **9**. Chạy file mới số 8 để kích hoạt chấm công và bảo vệ ca đã chấm công. Không cần xóa dữ liệu lịch cũ. **Merge GitHub/Vercel không tự chạy SQL trên Supabase.** Trigger chỉ chặn thao tác ghi mới, không tự xóa dữ liệu lịch cũ. Nên kiểm tra trùng ca đã tồn tại trước khi triển khai:
 
 ```sql
 select a.user_id, a.id as shift_a, b.id as shift_b, a.starts_at, a.ends_at, b.starts_at, b.ends_at
@@ -61,6 +87,46 @@ where a.starts_at < b.ends_at and b.starts_at < a.ends_at;
 ```
 
 Danh sách kết quả nếu có cần được quản lý điều chỉnh thủ công. RLS và RPC phải được thực thi ở Supabase; chỉ đổi giao diện Vue **không** thay thế cho phân quyền database.
+
+### Cài đặt Supabase bằng một script (production)
+
+**Dự án Supabase đang chạy phải có các bảng nền từ**
+`multi_company.sql`, `company_approval.sql`, `account_controls.sql`,
+`admin_scope.sql`. Hãy sao lưu DB trước khi chạy.
+
+**Cách nhanh trong Supabase Dashboard:** mở SQL Editor, dán nguyên nội dung
+[`supabase/production_upgrade.sql`](supabase/production_upgrade.sql) rồi **Run**.
+Script chạy trong một transaction, có thể chạy lại và không xóa lịch, lương,
+chấm công hoặc thông báo trước đó. Nó bổ sung/đồng bộ cấu trúc bảng lương,
+chống trùng ca, thông báo, chấm công, và nghiệp vụ chính thức/thời vụ.
+
+**Tự chạy SQL khi merge vào `main`:** workflow
+[`.github/workflows/supabase-production.yml`](.github/workflows/supabase-production.yml)
+tự áp dụng đúng file `production_upgrade.sql` trên mỗi commit thay đổi thư mục
+`supabase/`. Trước khi dùng, hãy cấu hình GitHub Actions secret
+`SUPABASE_DB_URL` (nên đặt trong Environment `production`) chứa URI kết nối
+PostgreSQL của **đúng project Supabase** đang phục vụ website. Dùng kết nối
+**Session Pooler hỗ trợ IPv4**, bật SSL. Không đưa mật khẩu SQL hoặc
+`service_role` vào frontend hay commit. Nếu thiếu secret, workflow sẽ **thất bại
+rõ ràng** và không cập nhật database; merge GitHub hoặc Vercel deploy **không
+thay thế bước chạy SQL**. Có thể bấm **Actions → Supabase production migration →
+Run workflow** để chạy thủ công sau khi thêm secret.
+
+Kiểm tra sau khi chạy thành công:
+
+```sql
+select to_regclass('public.member_compensation') as compensation,
+       to_regclass('public.shift_attendance') as attendance,
+       to_regclass('public.shift_notifications') as notifications;
+select count(*) as staff_without_category
+from public.company_members m
+left join public.member_compensation c
+ on c.company_id=m.company_id and c.user_id=m.user_id
+where m.role='staff' and c.user_id is null;
+```
+
+Nếu cần làm mới PostgREST schema cache sau migration:
+`NOTIFY pgrst, 'reload schema';`
 
 ### Xem trước từng vai trò
 

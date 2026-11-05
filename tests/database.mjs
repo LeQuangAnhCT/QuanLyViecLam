@@ -24,9 +24,13 @@ await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta
  ($2,'manager@example.com',now(),'{"full_name":"Manager"}','{}'),
  ($3,'staff@example.com',now(),'{"full_name":"Staff"}','{}'),
  ($4,'other@example.com',now(),'{"full_name":"Other"}','{}')`,[admin,manager,staff,outsider]);
-for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql','supabase/shift_attendance.sql']) {
+for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql','supabase/shift_attendance.sql','supabase/staff_business.sql']) {
   await db.exec(await readFile(new URL('../'+file,import.meta.url),'utf8'));
 }
+// The one-paste production upgrade must also work on a database that already
+// received the individual migrations. All existing data must be preserved.
+await db.exec(await readFile(new URL('../supabase/production_upgrade.sql',import.meta.url),'utf8'));
+
 async function login(id,role='staff',email='') {
   await db.exec('reset role');
   await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:id,email,app_metadata:{role}})]);
@@ -52,7 +56,13 @@ await login(admin,'admin','admin@example.com');
 await expectDenied(()=>db.query('select public.review_join_request($1,$2,true)',[company,staff]));
 await login(manager,'staff','manager@example.com');
 await db.query('select public.review_join_request($1,$2,true)',[company,staff]);
-await db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'employee',8000000,500000)",[company,staff]);
+// Joining the company automatically starts in seasonal classification (no wage overwritten).
+const initialCategory = await db.query("select employment_type,show_rate_vnd from public.member_compensation where company_id=$1 and user_id=$2",[company,staff]);
+assert.equal(initialCategory.rows.length,1);
+assert.equal(initialCategory.rows[0].employment_type,'freelancer');
+assert.equal(Number(initialCategory.rows[0].show_rate_vnd),0);
+await db.query("update public.member_compensation set employment_type='employee', monthly_base_vnd=8000000, show_rate_vnd=500000 where company_id=$1 and user_id=$2",[company,staff]);
+await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Manager shift',now(),now()+interval '2 hours')",[company,manager]));
 await expectDenied(()=>db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'freelancer',1,500000)",[company,manager]));
 const firstShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Show',now(),now()+interval '4 hours') returning id",[company,staff]);
 await db.query("update public.company_shifts set title='Show updated' where id=$1",[firstShift.rows[0].id]);
@@ -67,13 +77,24 @@ assert.equal((await db.query('select * from public.shift_attendance')).rows.leng
 await expectDenied(()=>db.query('select public.clock_in_shift($1)',[firstShift.rows[0].id]));
 await login(manager,'staff','manager@example.com');
 assert.equal((await db.query('select * from public.shift_attendance')).rows.length,1);
+const preCheckoutSummary = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(preCheckoutSummary.rows.length,1);
+assert.equal(Number(preCheckoutSummary.rows[0].completed_shifts),0);
+// Manager-only reports use CURRENT rates and include completed check-outs.
 await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[firstShift.rows[0].id]));
 await expectDenied(()=>db.query("update public.company_shifts set ends_at=ends_at+interval '1 hour' where id=$1",[firstShift.rows[0].id]));
 await login(staff,'staff','staff@example.com');
 await db.query('select public.clock_out_shift($1)',[firstShift.rows[0].id]);
+await expectDenied(()=>db.query('select * from public.company_staff_summary($1,current_date)',[company]));
 assert.equal((await db.query('select * from public.shift_attendance where checked_out_at is not null')).rows.length,1);
 await expectDenied(()=>db.query('select public.clock_out_shift($1)',[firstShift.rows[0].id]));
 await login(manager,'staff','manager@example.com');
+const salaryPreview = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(salaryPreview.rows.length,1);
+assert.equal(salaryPreview.rows[0].employment_type,'employee');
+assert.equal(Number(salaryPreview.rows[0].completed_shifts),1);
+assert.equal(Number(salaryPreview.rows[0].scheduled_shifts),2);
+assert.equal(Number(salaryPreview.rows[0].estimated_total_vnd),8500000);
 await db.query("insert into public.company_invitations(company_id,email) values($1,'other@example.com')",[company]);
 await login(outsider,'staff','other@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
@@ -85,7 +106,12 @@ const invitation=await db.query("select id from public.company_invitations where
 assert.equal(invitation.rows.length,1);
 await db.query('select public.accept_company_invitation($1)',[invitation.rows[0].id]);
 assert.equal((await db.query('select * from public.company_members where company_id=$1 and user_id=$2',[company,outsider])).rows.length,1);
+assert.equal((await db.query('select employment_type from public.member_compensation')).rows[0].employment_type,'freelancer');
+await expectDenied(()=>db.query('select * from public.company_staff_summary($1,current_date)',[company]));
 await login(manager,'staff','manager@example.com');
+const seasonalPreview = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(seasonalPreview.rows.length,2);
+assert.equal(seasonalPreview.rows.find(x=>x.user_id===outsider).employment_type,'freelancer');
 // Notifications for staff must be written by the server, not by direct browser inserts.
 const temp = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Temporary',now()+interval '2 days',now()+interval '2 days 4 hours') returning id",[company,outsider]);
 await db.query("update public.company_shifts set location='Hall B' where id=$1",[temp.rows[0].id]);
@@ -97,6 +123,20 @@ assert.deepEqual(otherMessages.rows.map(r=>r.event).sort(),['cancelled','created
 await expectDenied(()=>db.query("insert into public.shift_notifications(user_id,company_id,event,title,body) values($1,$2,'created','Hacked','Message')",[outsider,company]));
 await db.query("update public.shift_notifications set read_at=now() where event='created'");
 assert.equal((await db.query("select count(*)::int as count from public.shift_notifications where read_at is not null")).rows[0].count,1);
+// A seasonal staff member earns no monthly base, and only earns show-pay after checkout.
+await login(manager,'staff','manager@example.com');
+await db.query("update public.member_compensation set show_rate_vnd=350000 where company_id=$1 and user_id=$2",[company,outsider]);
+const seasonalShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Seasonal show',now(),now()+interval '1 hour') returning id",[company,outsider]);
+const beforeSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(Number(beforeSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),0);
+await login(outsider,'staff','other@example.com');
+await db.query('select public.clock_in_shift($1)',[seasonalShift.rows[0].id]);
+await db.query('select public.clock_out_shift($1)',[seasonalShift.rows[0].id]);
+await login(manager,'staff','manager@example.com');
+const afterSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),350000);
+assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).monthly_base_vnd||0),0);
+await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[seasonalShift.rows[0].id]));
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);
 assert.deepEqual((await db.query('select event from public.shift_notifications')).rows.map(row=>row.event).sort(),['created','created','updated']);
@@ -125,6 +165,6 @@ await login(admin,'admin','admin@example.com');
 await db.query('select public.admin_set_account_disabled($1,false,$2)',[staff,'Khôi phục']);
 await db.query('select public.admin_set_company_manager($1,$2)',[company,staff]);
 await login(staff,'staff','staff@example.com');
-assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
+assert.equal((await db.query('select * from public.company_shifts')).rows.length,3);
 await db.close();
-console.log('Database shift cancellation pre/post check-in, real attendance, notification RLS and roles: OK');
+console.log('Database seasonal/full-time classification, payroll privacy, attendance and role rules: OK');

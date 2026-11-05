@@ -9,6 +9,7 @@ export const repository = {
   invitations: () => data(supabase.from('company_invitations').select('id,company_id,email,status').eq('status', 'pending')),
   roster: id => data(supabase.rpc('company_roster', { p_company: id })),
   compensation: id => data(supabase.from('member_compensation').select('*').eq('company_id', id)),
+  staffSummary: (companyId, monthDate) => data(supabase.rpc('company_staff_summary',{p_company:companyId,p_month:monthDate})),
   shifts: id => data(supabase.from('company_shifts').select('*').eq('company_id', id).order('starts_at')),
   attendance: id => data(supabase.from('shift_attendance')
     .select('shift_id,company_id,user_id,checked_in_at,checked_out_at').eq('company_id',id)),

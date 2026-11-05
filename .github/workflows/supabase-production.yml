@@ -1,0 +1,42 @@
+name: Supabase production migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/supabase-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production-schema
+  cancel-in-progress: false
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure Supabase secret exists
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Missing SUPABASE_DB_URL. Set it in GitHub Settings > Environments > production > Secrets (or repository Actions Secrets). Database was NOT updated."
+            exit 1
+          fi
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: Apply staff management schema
+        shell: bash
+        run: |
+          # One transaction; SQL errors stop the job. No database credentials printed.
+          psql --no-psqlrc --dbname="$SUPABASE_DB_URL" --set ON_ERROR_STOP=1 --file supabase/production_upgrade.sql

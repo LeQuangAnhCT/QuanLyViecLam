@@ -224,3 +224,28 @@ button{transition:background .15s ease,border-color .15s ease}
  .attendance-row .clock-actions button{width:100%}
  .shift-actions .clock-locked{flex:1 1 100%;max-width:none}
 }
+
+
+/* Monthly compensation preview: role-scoped, monochrome, responsive. */
+.payroll-month-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.payroll-month-controls b{font-size:12px;min-width:114px;text-align:center}
+.payroll-kpis{margin-top:14px}
+.payroll-money{font-size:clamp(15px,2vw,26px)!important;overflow-wrap:anywhere;line-height:1.2!important}
+.payroll-type{font-size:clamp(17px,2vw,26px)!important}
+.payroll-table-wrap{overflow-x:auto;max-width:100%;border:1px solid #e3e3e3;border-radius:10px}
+.payroll-table{width:100%;border-collapse:collapse;font-size:12px;min-width:860px;background:#fff}
+.payroll-table th{font-size:11px;letter-spacing:.02em;text-align:left;background:#f6f6f6;color:#666;font-weight:700;white-space:nowrap;padding:13px 12px;border-bottom:1px solid #dedede}
+.payroll-table td{padding:12px;border-bottom:1px solid #ededed;white-space:nowrap;color:#222}
+.payroll-table tbody tr:last-child td{border-bottom:0}
+.payroll-table td:first-child{white-space:normal;min-width:140px}
+.payroll-table td small{display:block;color:#888;font-size:10px;overflow-wrap:anywhere}
+.payroll-disclaimer{margin:17px 0 0;color:#777;font-size:11px;line-height:1.6}
+.income-rates{margin-top:14px;padding:16px;border:1px solid #e4e4e4;border-radius:10px}
+.income-rates p:last-child{margin-bottom:0}
+@media(max-width:650px){
+ .payroll-month-controls{width:100%;justify-content:space-between}
+ .payroll-section .section-title,.income-section .section-title{flex-wrap:wrap}
+ .payroll-kpis .overview-tile{min-height:114px}
+ .payroll-type{font-size:16px!important}
+ .payroll-money{font-size:14px!important}
+}

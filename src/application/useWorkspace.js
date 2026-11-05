@@ -8,6 +8,25 @@ export function useWorkspace(user) {
   const applications = ref([]), freelancers = ref([]), profile = ref(null), accounts = ref([]), adminCompanies = ref([]), requests = ref([]), restriction = ref(null)
   const notifications = ref([]), notificationsUnavailable = ref(false), notificationsError = ref('')
   const clockRecords = ref([]), clockUnavailable = ref(false), clockError = ref('')
+  const payroll = ref([]), payrollUnavailable = ref(false), payrollError = ref('')
+  let payrollRequest = 0
+  async function refreshPayroll(monthDate) {
+    const request = ++payrollRequest, id = companyId.value
+    if (!manager.value || !id) { payroll.value = []; return }
+    try {
+      const result = await repo.staffSummary(id,monthDate)
+      if (request !== payrollRequest || id !== companyId.value) return
+      payroll.value = result || []
+      payrollError.value = ''; payrollUnavailable.value = false
+    } catch(e) {
+      if (request !== payrollRequest || id !== companyId.value) return
+      payroll.value = []
+      payrollUnavailable.value = ['42P01','PGRST202','PGRST205'].includes(e?.code)
+      payrollError.value = payrollUnavailable.value
+        ? 'Báo cáo chưa được cài đặt trong Supabase. Hãy chạy supabase/staff_business.sql.'
+        : (e?.message || 'Không thể tải bảng công và lương.')
+    }
+  }
   const busy = ref(false), loading = ref(true), error = ref(''), message = ref('')
   const current = computed(() => companies.value.find(c => c.id === companyId.value))
   const manager = computed(() => current.value?.role === 'manager')
@@ -76,5 +95,5 @@ export function useWorkspace(user) {
     catch (e) { error.value = e?.code === '23P01' ? 'Nhân viên đã có ca trùng giờ (có thể ở công ty khác). Hãy đổi thời gian.' : (e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'); return false }
     finally { busy.value = false; loading.value = false }
   }
-  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, refreshNotifications, clockRecords, clockUnavailable, clockError, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
+  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, refreshNotifications, clockRecords, clockUnavailable, clockError, payroll, payrollUnavailable, payrollError, refreshPayroll, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
 }
