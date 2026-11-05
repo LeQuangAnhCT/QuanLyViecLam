@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {supabase} from './lib/supabase';
 import './multiApp.css';
+import Discovery from './Discovery';
 
 const localDate = d => [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
 const errorText = e => e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
@@ -15,6 +16,8 @@ export default function MultiApp(){
 
 function Workspace({user}){
   const isAdmin=user.app_metadata?.role==='admin';
+  const [restriction,setRestriction]=useState(null);
+  useEffect(()=>{supabase.from('account_restrictions').select('disabled,reason').eq('user_id',user.id).maybeSingle().then(({data})=>setRestriction(data))},[user.id]);
   const [companies,setCompanies]=useState([]),[invitations,setInvitations]=useState([]),[company,setCompany]=useState(''),[members,setMembers]=useState([]),[shifts,setShifts]=useState([]),[tab,setTab]=useState('calendar'),[error,setError]=useState(''),[busy,setBusy]=useState(false),[modal,setModal]=useState(null),[month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const current=companies.find(c=>c.id===company),manager=isAdmin||current?.role==='manager';
   async function refreshCompanies(){
@@ -37,9 +40,11 @@ function Workspace({user}){
   async function run(fn,success){setBusy(true);setError('');try{const {error:e}=await fn();if(e)throw e;await refreshCompanies();if(company)await refreshCompany(company);if(success)setModal(null)}catch(e){setError(errorText(e))}finally{setBusy(false)}}
   const rosterName=id=>members.find(m=>m.user_id===id)?.full_name||'Nhân viên';
   const days=new Date(month.getFullYear(),month.getMonth()+1,0).getDate(),first=(new Date(month.getFullYear(),month.getMonth(),1).getDay()+6)%7;
+  if(restriction?.disabled)return <main className="login"><h1>Tài khoản đã bị vô hiệu hóa</h1><p>Lý do: {restriction.reason}</p><button className="secondary" onClick={()=>supabase.auth.signOut()}>Thoát</button></main>;
   return <div className="shell"><aside className="sidebar"><div className="brand"><span className="mark">S</span><div><b>SHIFTLY</b><small>Quản lý sự kiện</small></div></div><nav className="nav"><button className={tab==='calendar'?'active':''} onClick={()=>setTab('calendar')}>Lịch làm việc</button><button className={tab==='people'?'active':''} onClick={()=>setTab('people')}>Nhân viên</button><button className={tab==='attendance'?'active':''} onClick={()=>setTab('attendance')}>Giờ công dự kiến</button></nav><div className="sidebar-foot">{isAdmin?'Admin':current?.role==='manager'?'Manager':'Staff'}<br/>{user.email}</div></aside>
   <section className="main"><header className="topbar"><h1>Shiftly</h1><button className="logout" onClick={()=>supabase.auth.signOut()}>Thoát</button></header><main className="content">
-  <div className="company-bar"><label>Công ty<select value={company} onChange={e=>setCompany(e.target.value)}><option value="">Chọn công ty</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>{isAdmin&&<button className="primary" onClick={()=>setModal({type:'company'})}>+ Tạo công ty</button>}</div>
+  <Discovery user={user} isAdmin={isAdmin} companies={companies} company={company} manager={current?.role==='manager'} refresh={refreshCompanies}/>
+  <div className="company-bar"><label>Công ty<select value={company} onChange={e=>setCompany(e.target.value)}><option value="">Chọn công ty</option>{companies.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
   {error&&<div className="notice error" role="alert">{error}</div>}
   {invitations.length>0&&<section className="panel invitation"><h3>Lời mời tham gia</h3>{invitations.map(i=><div key={i.id}>Công ty: {i.company_name||i.company_id} <button className="secondary" disabled={busy} onClick={()=>run(()=>supabase.rpc('accept_company_invitation',{p_invitation:i.id}))}>Chấp nhận</button></div>)}</section>}
   {!company?<div className="empty">Bạn chưa tham gia công ty nào. Manager có thể mời bạn bằng email đăng nhập.</div>:<>
