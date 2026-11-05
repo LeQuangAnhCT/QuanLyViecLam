@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hours, shiftRows, roleLabel } from '../src/domain/calendar.js'
+import { hours, shiftRows, roleLabel, preferredCompanyId } from '../src/domain/calendar.js'
 
 const input = { title: '  Lắp sân khấu  ', location: 'Nhà hát', date: '2026-11-05', end_date: '2026-11-06', start: '22:00', end: '02:00', user_ids: ['one', 'two'] }
 const rows = shiftRows(input, 'company')
@@ -16,4 +16,7 @@ assert.equal(shiftRows({ ...input, user_ids: ['one','one','two'] }, 'company').l
 const existing = [{ ...rows[0], id: 'existing' }]
 assert.throws(() => shiftRows(input, 'company', existing), /trùng/)
 assert.doesNotThrow(() => shiftRows({ ...input, date: '2026-11-06', end_date: '2026-11-06', start: '02:00', end: '04:00' }, 'company', existing))
+assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}]),'owner-company')
+assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}],'staff-company'),'staff-company')
+assert.equal(preferredCompanyId([]),'')
 console.log('Shift validation, duplicates, overlap, overnight hours and roles: OK')
