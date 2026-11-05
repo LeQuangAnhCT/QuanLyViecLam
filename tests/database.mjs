@@ -23,7 +23,7 @@ await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta
  ($2,'manager@example.com',now(),'{"full_name":"Manager"}','{}'),
  ($3,'staff@example.com',now(),'{"full_name":"Staff"}','{}'),
  ($4,'other@example.com',now(),'{"full_name":"Other"}','{}')`,[admin,manager,staff,outsider]);
-for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql']) {
+for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql']) {
   await db.exec(await readFile(new URL('../'+file,import.meta.url),'utf8'));
 }
 async function login(id,role='staff',email='') {
@@ -53,7 +53,8 @@ await login(manager,'staff','manager@example.com');
 await db.query('select public.review_join_request($1,$2,true)',[company,staff]);
 await db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'employee',8000000,500000)",[company,staff]);
 await expectDenied(()=>db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'freelancer',1,500000)",[company,manager]));
-await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Show',now(),now()+interval '4 hours')",[company,staff]);
+const firstShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Show',now(),now()+interval '4 hours') returning id",[company,staff]);
+await db.query("update public.company_shifts set title='Show updated' where id=$1",[firstShift.rows[0].id]);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Overlap',now()+interval '1 hour',now()+interval '3 hours')",[company,staff]));
 await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Adjacent',now()+interval '4 hours',now()+interval '6 hours')",[company,staff]);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Too long',now()+interval '6 hours',now()+interval '36 hours')",[company,staff]));
@@ -67,12 +68,26 @@ const invitation=await db.query("select id from public.company_invitations where
 assert.equal(invitation.rows.length,1);
 await db.query('select public.accept_company_invitation($1)',[invitation.rows[0].id]);
 assert.equal((await db.query('select * from public.company_members where company_id=$1 and user_id=$2',[company,outsider])).rows.length,1);
+await login(manager,'staff','manager@example.com');
+// Notifications for staff must be written by the server, not by direct browser inserts.
+const temp = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Temporary',now()+interval '2 days',now()+interval '2 days 4 hours') returning id",[company,outsider]);
+await db.query("update public.company_shifts set location='Hall B' where id=$1",[temp.rows[0].id]);
+await db.query("delete from public.company_shifts where id=$1",[temp.rows[0].id]);
+assert.equal((await db.query('select * from public.shift_notifications')).rows.length,0);
+await login(outsider,'staff','other@example.com');
+const otherMessages = await db.query("select event from public.shift_notifications order by created_at");
+assert.deepEqual(otherMessages.rows.map(r=>r.event).sort(),['cancelled','created','updated']);
+await expectDenied(()=>db.query("insert into public.shift_notifications(user_id,company_id,event,title,body) values($1,$2,'created','Hacked','Message')",[outsider,company]));
+await db.query("update public.shift_notifications set read_at=now() where event='created'");
+assert.equal((await db.query("select count(*)::int as count from public.shift_notifications where read_at is not null")).rows[0].count,1);
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);
+assert.deepEqual((await db.query('select event from public.shift_notifications')).rows.map(row=>row.event).sort(),['created','created','updated']);
 assert.equal((await db.query('update public.member_compensation set show_rate_vnd=1 returning *')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
 await expectDenied(()=>db.query('select public.admin_set_account_disabled($1,true,$2)',[manager,'Không hợp lệ']));
 await login(admin,'admin','admin@example.com');
+assert.equal((await db.query('select * from public.shift_notifications')).rows.length,0);
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);
 assert.equal((await db.query('select * from public.planned_attendance')).rows.length,0);
@@ -84,6 +99,7 @@ assert.equal(listing.rows[0].manager_email,'manager@example.com');
 assert.equal((await db.query('select * from public.admin_list_accounts()')).rows.length,4);
 await db.query('select public.admin_set_account_disabled($1,true,$2)',[staff,'Kiểm thử']);
 await login(staff,'staff','staff@example.com');
+assert.equal((await db.query('select * from public.shift_notifications')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);
 await expectDenied(()=>db.query('select public.request_company_membership($1)',[company]));
 assert.equal((await db.query('select * from public.companies')).rows.length,0);
@@ -94,4 +110,4 @@ await db.query('select public.admin_set_company_manager($1,$2)',[company,staff])
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
 await db.close();
-console.log('Database roles, admin/manager isolation, shift overlaps, limits, and account controls: OK');
+console.log('Database roles, shift updates, staff notifications, isolation, overlaps and account controls: OK');
