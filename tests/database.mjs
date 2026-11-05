@@ -123,6 +123,20 @@ assert.deepEqual(otherMessages.rows.map(r=>r.event).sort(),['cancelled','created
 await expectDenied(()=>db.query("insert into public.shift_notifications(user_id,company_id,event,title,body) values($1,$2,'created','Hacked','Message')",[outsider,company]));
 await db.query("update public.shift_notifications set read_at=now() where event='created'");
 assert.equal((await db.query("select count(*)::int as count from public.shift_notifications where read_at is not null")).rows[0].count,1);
+// A seasonal staff member earns no monthly base, and only earns show-pay after checkout.
+await login(manager,'staff','manager@example.com');
+await db.query("update public.member_compensation set show_rate_vnd=350000 where company_id=$1 and user_id=$2",[company,outsider]);
+const seasonalShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Seasonal show',now(),now()+interval '1 hour') returning id",[company,outsider]);
+const beforeSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(Number(beforeSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),0);
+await login(outsider,'staff','other@example.com');
+await db.query('select public.clock_in_shift($1)',[seasonalShift.rows[0].id]);
+await db.query('select public.clock_out_shift($1)',[seasonalShift.rows[0].id]);
+await login(manager,'staff','manager@example.com');
+const afterSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
+assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),350000);
+assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).monthly_base_vnd||0),0);
+await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[seasonalShift.rows[0].id]));
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);
 assert.deepEqual((await db.query('select event from public.shift_notifications')).rows.map(row=>row.event).sort(),['created','created','updated']);
@@ -151,6 +165,6 @@ await login(admin,'admin','admin@example.com');
 await db.query('select public.admin_set_account_disabled($1,false,$2)',[staff,'Khôi phục']);
 await db.query('select public.admin_set_company_manager($1,$2)',[company,staff]);
 await login(staff,'staff','staff@example.com');
-assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
+assert.equal((await db.query('select * from public.company_shifts')).rows.length,3);
 await db.close();
 console.log('Database seasonal/full-time classification, payroll privacy, attendance and role rules: OK');
