@@ -24,7 +24,7 @@ await db.query(`insert into auth.users(id,email,email_confirmed_at,raw_user_meta
  ($2,'manager@example.com',now(),'{"full_name":"Manager"}','{}'),
  ($3,'staff@example.com',now(),'{"full_name":"Staff"}','{}'),
  ($4,'other@example.com',now(),'{"full_name":"Other"}','{}')`,[admin,manager,staff,outsider]);
-for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql']) {
+for (const file of ['supabase/multi_company.sql','supabase/company_approval.sql','supabase/account_controls.sql','supabase/admin_scope.sql','supabase/member_compensation.sql','supabase/shift_business_rules.sql','supabase/shift_notifications.sql','supabase/shift_attendance.sql']) {
   await db.exec(await readFile(new URL('../'+file,import.meta.url),'utf8'));
 }
 async function login(id,role='staff',email='') {
@@ -59,10 +59,26 @@ await db.query("update public.company_shifts set title='Show updated' where id=$
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Overlap',now()+interval '1 hour',now()+interval '3 hours')",[company,staff]));
 await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Adjacent',now()+interval '4 hours',now()+interval '6 hours')",[company,staff]);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Too long',now()+interval '6 hours',now()+interval '36 hours')",[company,staff]));
+// Manager can cancel an unclocked shift but cannot clock in as a staff member.
+await expectDenied(()=>db.query('select public.clock_in_shift($1)',[firstShift.rows[0].id]));
+await login(staff,'staff','staff@example.com');
+await db.query('select public.clock_in_shift($1)',[firstShift.rows[0].id]);
+assert.equal((await db.query('select * from public.shift_attendance')).rows.length,1);
+await expectDenied(()=>db.query('select public.clock_in_shift($1)',[firstShift.rows[0].id]));
+await login(manager,'staff','manager@example.com');
+assert.equal((await db.query('select * from public.shift_attendance')).rows.length,1);
+await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[firstShift.rows[0].id]));
+await expectDenied(()=>db.query("update public.company_shifts set ends_at=ends_at+interval '1 hour' where id=$1",[firstShift.rows[0].id]));
+await login(staff,'staff','staff@example.com');
+await db.query('select public.clock_out_shift($1)',[firstShift.rows[0].id]);
+assert.equal((await db.query('select * from public.shift_attendance where checked_out_at is not null')).rows.length,1);
+await expectDenied(()=>db.query('select public.clock_out_shift($1)',[firstShift.rows[0].id]));
+await login(manager,'staff','manager@example.com');
 await db.query("insert into public.company_invitations(company_id,email) values($1,'other@example.com')",[company]);
 await login(outsider,'staff','other@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,0);
+assert.equal((await db.query('select * from public.shift_attendance')).rows.length,0);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Unauthorized',now(),now()+interval '1 hour')",[company,staff]));
 assert.equal((await db.query('select * from public.company_members where company_id=$1',[company])).rows.length,0);
 const invitation=await db.query("select id from public.company_invitations where email='other@example.com'");
@@ -111,4 +127,4 @@ await db.query('select public.admin_set_company_manager($1,$2)',[company,staff])
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
 await db.close();
-console.log('Database roles, shift updates, staff notifications, isolation, overlaps and account controls: OK');
+console.log('Database shift cancellation pre/post check-in, real attendance, notification RLS and roles: OK');
