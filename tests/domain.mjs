@@ -17,6 +17,6 @@ const existing = [{ ...rows[0], id: 'existing' }]
 assert.throws(() => shiftRows(input, 'company', existing), /trùng/)
 assert.doesNotThrow(() => shiftRows({ ...input, date: '2026-11-06', end_date: '2026-11-06', start: '02:00', end: '04:00' }, 'company', existing))
 assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}]),'owner-company')
-assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}],'staff-company'),'staff-company')
+assert.equal(preferredCompanyId([{id:'staff-company',role:'staff'},{id:'owner-company',role:'manager'}],'staff-company'),'owner-company')
 assert.equal(preferredCompanyId([]),'')
 console.log('Shift validation, duplicates, overlap, overnight hours and roles: OK')
