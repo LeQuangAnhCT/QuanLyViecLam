@@ -22,6 +22,8 @@ create policy "users read own shifts" on public.shifts for select to authenticat
 create policy "users insert own shifts" on public.shifts for insert to authenticated with check (auth.uid() = user_id);
 create policy "users delete own shifts" on public.shifts for delete to authenticated using (auth.uid() = user_id);
 create policy "admins read all shifts" on public.shifts for select to authenticated using ((auth.jwt()->'app_metadata'->>'role') = 'admin');
+create policy "admins insert all shifts" on public.shifts for insert to authenticated with check ((auth.jwt()->'app_metadata'->>'role') = 'admin');
+create policy "admins update all shifts" on public.shifts for update to authenticated using ((auth.jwt()->'app_metadata'->>'role') = 'admin') with check ((auth.jwt()->'app_metadata'->>'role') = 'admin');
 create policy "admins delete all shifts" on public.shifts for delete to authenticated using ((auth.jwt()->'app_metadata'->>'role') = 'admin');
 
 create table if not exists public.profiles (
