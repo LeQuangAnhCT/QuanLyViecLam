@@ -1,26 +1,28 @@
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useWorkspace } from '../application/useWorkspace'
-import { localDate, hours, roleLabel, shiftRows } from '../domain/calendar'
+import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/calendar'
 
 const props = defineProps({ user: { type: Object, required: true } })
 const w = useWorkspace(props.user)
-const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, busy, loading, error, message, current, manager, canSchedule, repo } = w
+const { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, busy, loading, error, message, current, manager, canSchedule, repo } = w
 const tab = ref(isAdmin ? 'approval' : 'calendar'), month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), selectedDate = ref(localDate(new Date())), modal = ref('')
 const form = reactive({ company_name: '', address: '', phone: '', email: '' }), freelancer = reactive({ display_name: props.user.user_metadata?.full_name || '', specialty: '', visible: false })
-const inviteEmail = ref(''), reasons = reactive({})
+const inviteEmail = ref(''), reasons = reactive({}), editingShiftId = ref('')
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', user_ids: [] })
 const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
 const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
 const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
 const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'))
+const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
+const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đổi lịch', cancelled:'Ca đã hủy'})[event] || 'Thông báo'
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
 const tabs = computed(() => {
   if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Công ty'],['accounts','Tài khoản']]
   const result = [['calendar',manager.value ? 'Phân ca' : 'Lịch của tôi']]
-  if (!manager.value) result.push(['attendance','Giờ dự kiến'])
+  if (!manager.value) result.push(['attendance','Giờ dự kiến'], ['notifications','Thông báo'])
   result.push(['people',manager.value ? 'Quản lý nhân sự' : 'Đồng nghiệp'],['community', manager.value ? 'Tuyển nhân sự' : 'Cộng đồng'])
   if (!hasManagedCompany.value) result.push(['registration', activeApplication.value ? 'Đơn đăng ký' : 'Đăng ký công ty'])
   return result
@@ -64,6 +66,28 @@ const selectedDateLabel = computed(() => new Date(selectedDate.value + 'T12:00:0
 const timeOf = stamp => new Date(stamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca làm việc. Chọn để xem chi tiết.`
 function chooseDay(day) { selectedDate.value = localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day)) }
+function clickCalendarCell(day) {
+  chooseDay(day)
+  if (!canSchedule.value) return
+  const items = shiftsForDate(selectedDate.value)
+  if (items.length === 0) openShift(day)
+  else if (items.length === 1) editShift(items[0])
+  else { error.value = ''; modal.value = 'shift-picker' }
+}
+function editShift(item) {
+  if (!canSchedule.value) return
+  const start = new Date(item.starts_at), end = new Date(item.ends_at)
+  selectedDate.value = localDate(start)
+  month.value = new Date(start.getFullYear(),start.getMonth(),1)
+  editingShiftId.value = item.id
+  Object.assign(shift, {
+    title: item.title, location: item.location || '',
+    date: localDate(start), end_date: localDate(end),
+    start: timeOf(start), end: timeOf(end), user_ids: [item.user_id]
+  })
+  error.value = ''
+  modal.value = 'shift'
+}
 function goToToday() { month.value = new Date(new Date().getFullYear(),new Date().getMonth(),1); selectedDate.value = localDate(new Date()) }
 function createShiftOnSelectedDay() {
   if (!canSchedule.value) return
@@ -73,22 +97,23 @@ function createShiftOnSelectedDay() {
 }
 const statusText = status => ({pending:'Đang chờ duyệt', approved:'Đã duyệt', rejected:'Đã từ chối'})[status] || status
 function changeMonth(delta) { month.value = new Date(month.value.getFullYear(), month.value.getMonth() + delta, 1); selectedDate.value = localDate(month.value) }
-function openShift(day) { if (!canSchedule.value) return; error.value=''; const date = localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)); Object.assign(shift,{title:'',location:'',date,end_date:date,start:'08:00',end:'12:00',user_ids:[]}); modal.value='shift' }
+function openShift(day) { if (!canSchedule.value) return; error.value=''; editingShiftId.value=''; const date = localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)); Object.assign(shift,{title:'',location:'',date,end_date:date,start:'08:00',end:'12:00',user_ids:[]}); modal.value='shift' }
 function setPeriod(event) { const t = {morning:['08:00','12:00'],afternoon:['13:00','17:00'],evening:['18:00','23:00'],all:['08:00','23:00']}[event.target.value]; if(t) [shift.start,shift.end]=t }
 async function perform(fn, success, close = false) { if (await w.perform(fn,success) && close) modal.value='' }
 async function saveShift() {
-  if (!canSchedule.value) { error.value = 'Chỉ chủ công ty mới được phân ca.'; return }
+  if (!canSchedule.value) { error.value = 'Chỉ Manager mới được phân ca.'; return }
   let rows
   try {
     const eligible = new Set(staffMembers.value.map(m => m.user_id))
     if (!shift.user_ids.every(id => eligible.has(id))) throw new Error('Chỉ được phân ca cho nhân viên thuộc công ty.')
-    rows = shiftRows(shift, companyId.value, shifts.value)
+    rows = editingShiftId.value ? shiftUpdate(shift, companyId.value, editingShiftId.value, shifts.value) : shiftRows(shift, companyId.value, shifts.value)
   } catch (e) { error.value = e?.message || 'Ca làm việc chưa hợp lệ.'; return }
   busy.value = true
   error.value = ''
   message.value = ''
   try {
-    await repo.insert('company_shifts', rows)
+    if (editingShiftId.value) await repo.updateShift(editingShiftId.value, companyId.value, rows)
+    else await repo.insert('company_shifts', rows)
   } catch (e) {
     const errors = {
       '23P01': 'Nhân viên bị trùng ca, có thể với ca ở công ty khác. Hãy chọn giờ khác.',
@@ -102,7 +127,8 @@ async function saveShift() {
     return
   }
   modal.value = ''
-  message.value = `Đã lưu ${rows.length} ca làm việc thành công.`
+  message.value = editingShiftId.value ? 'Đã cập nhật ca làm việc.' : `Đã lưu ${rows.length} ca làm việc thành công.`
+  editingShiftId.value = ''
   try {
     await w.refreshCompany()
   } catch (e) {
@@ -112,10 +138,20 @@ async function saveShift() {
 async function removeShift(item) { if (!canSchedule.value || !window.confirm(`Xóa ca "${item.title}" của ${nameOf(item.user_id)}?`)) return; await perform(() => repo.deleteShift(item.id, companyId.value), 'Đã xóa ca làm việc.') }
 function saveApplication() { perform(() => repo.insert('company_applications',{...form, applicant_id:props.user.id}), 'Đã gửi đăng ký công ty.') }
 function saveProfile() { perform(() => repo.upsert('freelancer_profiles',{user_id:props.user.id,...freelancer}), 'Đã lưu hồ sơ freelancer.') }
+async function markRead(notification) {
+  if (notification.read_at) return
+  try {
+    await repo.markNotificationRead(notification.id, props.user.id)
+    notification.read_at = new Date().toISOString()
+  } catch(e) { error.value = e?.message || 'Không thể đánh dấu thông báo đã đọc.' }
+}
+function onWindowFocus() { if (!isAdmin && tab.value==='notifications') w.refreshNotifications() }
 function changeCompany() { modal.value=''; error.value=''; message.value=''; w.refreshCompany().catch(e => { error.value = e?.message || 'Không tải được công ty.' }) }
 watch(profile, p => { if(p) Object.assign(freelancer, {display_name:p.display_name,specialty:p.specialty,visible:p.visible}) })
 watch(tabs, available => { if (!available.some(item => item[0] === tab.value)) tab.value = isAdmin ? 'approval' : 'calendar' })
-onMounted(() => w.perform(() => Promise.resolve(), ''))
+watch(tab, next => { if (next === 'notifications') w.refreshNotifications() })
+onMounted(() => { w.perform(() => Promise.resolve(), ''); window.addEventListener('focus',onWindowFocus) })
+onUnmounted(() => window.removeEventListener('focus',onWindowFocus))
 </script>
 
 <template>
