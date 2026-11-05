@@ -59,7 +59,9 @@ export function useWorkspace(user) {
     if (request !== companyRequest || id !== companyId.value) return
     members.value = roster || []; shifts.value = schedule || []
     requests.value = pending || []
-    freelancers.value = (availableFreelancers || []).filter(f => f.visible && f.user_id !== user.id)
+    // Do not recruit employees who have already joined this company.
+    const existingMembers = new Set((roster || []).map(m => m.user_id))
+    freelancers.value = (availableFreelancers || []).filter(f => f.visible && f.user_id !== user.id && !existingMembers.has(f.user_id))
     if (pay.error && !['42P01','PGRST205'].includes(pay.error.code)) throw pay.error
     compensationUnavailable.value = !!pay.error
     compensation.value = pay.value || []
