@@ -9,6 +9,7 @@ const staff = '33333333-3333-4333-8333-333333333333';
 const outsider = '44444444-4444-4444-8444-444444444444';
 
 await db.exec(`
+  create role anon;
   create role authenticated;
   create schema auth;
   create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, last_sign_in_at timestamptz default now(), raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}');
