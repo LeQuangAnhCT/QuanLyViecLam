@@ -1,6 +1,6 @@
 export const localDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
 export const hours = (shift) => ((new Date(shift.ends_at) - new Date(shift.starts_at)) / 3600000).toFixed(2)
-export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Chủ công ty', staff: 'Nhân viên' })[role] || 'Nhân viên'
+export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'Nhân viên' })[role] || 'Nhân viên'
 
 export function shiftRows(values, companyId, existingShifts = []) {
   const users = [...new Set((values.user_ids || []).filter(Boolean))]
@@ -26,4 +26,13 @@ export function preferredCompanyId(companies, previousId = '') {
   const owned = companies.filter(c => c.role === 'manager')
   if (owned.length) return owned.find(c => c.id === previousId)?.id || owned[0].id
   return companies.find(c => c.id === previousId)?.id || companies[0]?.id || ''
+}
+
+/** Validate an edit without detecting the original row as an overlap. */
+export function shiftUpdate(values, companyId, shiftId, existingShifts = []) {
+  if (!shiftId) throw new Error('Không tìm thấy ca làm cần sửa.')
+  const rows = shiftRows(values, companyId, existingShifts.filter(s => s.id !== shiftId))
+  if (rows.length !== 1) throw new Error('Mỗi lần cập nhật chỉ chọn một nhân viên.')
+  const { company_id, ...changes } = rows[0]
+  return changes
 }
