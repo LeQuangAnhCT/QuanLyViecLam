@@ -1,7 +1,7 @@
 -- Apply after multi_company, company_approval, account_controls and admin_scope.
 -- A shift can span midnight, but one person must not be assigned overlapping hours,
 -- including overlapping assignments in different companies.
--- No extension required: the transaction advisory lock serializes changes per user.
+-- No extension required: a row lock on auth.users serializes changes per user.
 create or replace function public.prevent_overlapping_staff_shifts()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
@@ -11,7 +11,7 @@ begin
   if new.ends_at - new.starts_at > interval '24 hours' then
     raise exception 'A single shift must not exceed 24 hours' using errcode='23514';
   end if;
-  perform pg_advisory_xact_lock(hashtextextended(new.user_id::text, 0));
+  perform 1 from auth.users where id = new.user_id for update;
   if exists (
     select 1 from public.company_shifts s
     where s.user_id = new.user_id
