@@ -12,6 +12,9 @@ const inviteEmail = ref(''), reasons = reactive({})
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', user_ids: [] })
 const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
+const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
+const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
+const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'))
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
 const tabs = computed(() => {
@@ -65,15 +68,47 @@ function goToToday() { month.value = new Date(new Date().getFullYear(),new Date(
 function createShiftOnSelectedDay() {
   if (!canSchedule.value) return
   const [y,m,d] = selectedDate.value.split('-').map(Number)
-  openShift(d)
   month.value = new Date(y,m-1,1)
+  openShift(d)
 }
 const statusText = status => ({pending:'Đang chờ duyệt', approved:'Đã duyệt', rejected:'Đã từ chối'})[status] || status
 function changeMonth(delta) { month.value = new Date(month.value.getFullYear(), month.value.getMonth() + delta, 1); selectedDate.value = localDate(month.value) }
-function openShift(day) { if (!canSchedule.value) return; const date = localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)); Object.assign(shift,{title:'',location:'',date,end_date:date,start:'08:00',end:'12:00',user_ids:[]}); modal.value='shift' }
+function openShift(day) { if (!canSchedule.value) return; error.value=''; const date = localDate(new Date(month.value.getFullYear(),month.value.getMonth(),day)); Object.assign(shift,{title:'',location:'',date,end_date:date,start:'08:00',end:'12:00',user_ids:[]}); modal.value='shift' }
 function setPeriod(event) { const t = {morning:['08:00','12:00'],afternoon:['13:00','17:00'],evening:['18:00','23:00'],all:['08:00','23:00']}[event.target.value]; if(t) [shift.start,shift.end]=t }
 async function perform(fn, success, close = false) { if (await w.perform(fn,success) && close) modal.value='' }
-function saveShift() { if (!canSchedule.value) return; perform(() => repo.insert('company_shifts', shiftRows(shift,companyId.value,shifts.value)), 'Đã phân ca.', true) }
+async function saveShift() {
+  if (!canSchedule.value) { error.value = 'Chỉ chủ công ty mới được phân ca.'; return }
+  let rows
+  try {
+    const eligible = new Set(staffMembers.value.map(m => m.user_id))
+    if (!shift.user_ids.every(id => eligible.has(id))) throw new Error('Chỉ được phân ca cho nhân viên thuộc công ty.')
+    rows = shiftRows(shift, companyId.value, shifts.value)
+  } catch (e) { error.value = e?.message || 'Ca làm việc chưa hợp lệ.'; return }
+  busy.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    await repo.insert('company_shifts', rows)
+  } catch (e) {
+    const errors = {
+      '23P01': 'Nhân viên bị trùng ca, có thể với ca ở công ty khác. Hãy chọn giờ khác.',
+      '23503': 'Nhân viên không thuộc công ty này. Hãy tải lại danh sách thành viên.',
+      '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
+      '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
+      'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
+    }
+    error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
+    busy.value = false
+    return
+  }
+  modal.value = ''
+  message.value = `Đã lưu ${rows.length} ca làm việc thành công.`
+  try {
+    await w.refreshCompany()
+  } catch (e) {
+    error.value = 'Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
+  } finally { busy.value = false }
+}
 async function removeShift(item) { if (!canSchedule.value || !window.confirm(`Xóa ca "${item.title}" của ${nameOf(item.user_id)}?`)) return; await perform(() => repo.deleteShift(item.id, companyId.value), 'Đã xóa ca làm việc.') }
 function saveApplication() { perform(() => repo.insert('company_applications',{...form, applicant_id:props.user.id}), 'Đã gửi đăng ký công ty.') }
 function saveProfile() { perform(() => repo.upsert('freelancer_profiles',{user_id:props.user.id,...freelancer}), 'Đã lưu hồ sơ freelancer.') }
@@ -91,13 +126,16 @@ onMounted(() => w.perform(() => Promise.resolve(), ''))
       <div class="brand"><span class="brand-mark">S</span><div><strong>SHIFTLY</strong><small>Quản lý nhân sự sự kiện</small></div></div>
       <div class="side-label">{{ isAdmin ? 'QUẢN TRỊ HỆ THỐNG' : manager ? 'QUẢN LÝ CÔNG TY' : 'KHÔNG GIAN CỦA TÔI' }}</div>
       <nav aria-label="Điều hướng chính"><button v-for="item in tabs" :key="item[0]" :class="{selected:tab===item[0]}" @click="tab=item[0]">{{ item[1] }}</button></nav>
-      <div class="side-bottom"><div class="initial">{{ (user.user_metadata?.full_name || user.email || 'S').slice(0,1).toUpperCase() }}</div><div><b>{{ roleLabel(role) }}</b><small>{{ user.email }}</small></div></div>
+      <div class="side-bottom"><div class="initial">{{ (user.user_metadata?.full_name || user.email || 'S').slice(0,1).toUpperCase() }}</div><div><b>{{ user.user_metadata?.full_name || roleLabel(role) }}</b><small>{{ roleLabel(role) }} · {{ user.email }}</small></div></div>
     </aside>
     <div class="main-area">
       <header class="topbar"><div><span class="top-brand">SHIFTLY</span><span class="top-title">{{ tabs.find(t => t[0]===tab)?.[1] }}</span></div><button class="text-button" @click="repo.auth.signOut()">Đăng xuất</button></header>
       <nav class="mobile-nav" aria-label="Điều hướng trên điện thoại"><button v-for="item in tabs" :key="item[0]" :class="{selected:tab===item[0]}" @click="tab=item[0]">{{ item[1] }}</button></nav>
       <main class="content">
-        <div class="page-heading"><div><p class="eyebrow">{{ roleLabel(role) }}</p><h1>{{ tabs.find(t => t[0]===tab)?.[1] }}</h1><p v-if="tab!=='people'">{{ isAdmin ? 'Phê duyệt công ty và kiểm soát tài khoản trên toàn hệ thống.' : manager ? 'Điều phối ca làm việc và nhân sự của công ty đang chọn.' : 'Chỉ hiển thị các ca đã được giao cho bạn.' }}</p></div><label v-if="!isAdmin && companies.length" class="company-select">Công ty<select v-model="companyId" @change="changeCompany"><option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option></select></label></div>
+        <div class="page-heading"><div><p class="eyebrow">{{ roleLabel(role) }}</p><h1>{{ tabs.find(t => t[0]===tab)?.[1] }}</h1><p v-if="tab!=='people'">{{ isAdmin ? 'Phê duyệt công ty và kiểm soát tài khoản trên toàn hệ thống.' : manager ? 'Điều phối ca làm việc và nhân sự của công ty đang chọn.' : 'Chỉ hiển thị các ca đã được giao cho bạn.' }}</p></div><div v-if="!isAdmin && current" class="company-context">
+          <label v-if="selectableCompanies.length>1" class="company-select">Công ty của bạn<select v-model="companyId" @change="changeCompany"><option v-for="c in selectableCompanies" :key="c.id" :value="c.id">{{ c.name }}</option></select></label>
+          <div v-else class="company-identity"><span>{{ manager ? 'CÔNG TY BẠN QUẢN LÝ' : 'CÔNG TY CỦA BẠN' }}</span><strong>{{ current.name }}</strong></div>
+        </div></div>
         <div v-if="error" class="alert" role="alert">{{ error }}</div><div v-if="message" class="notice" role="status">{{ message }}</div>
         <section v-if="!isAdmin && invitations.length" class="surface section"><h2>Lời mời tham gia</h2><div v-for="i in invitations" :key="i.id" class="row"><span>{{ directory.find(c=>c.id===i.company_id)?.name || 'Công ty' }}</span><button :disabled="busy" @click="perform(()=>repo.rpc('accept_company_invitation',{p_invitation:i.id}),'Đã tham gia công ty.')">Chấp nhận</button></div></section>
 
@@ -120,7 +158,7 @@ onMounted(() => w.perform(() => Promise.resolve(), ''))
             </section>
             <div class="calendar-controls">
               <div><h2>{{ month.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}) }}</h2><p>{{ canSchedule ? 'Chọn một ngày để xem ca hoặc phân công nhân sự.' : 'Chọn ngày để xem giờ và địa điểm làm việc của bạn.' }}</p></div>
-              <div class="button-group"><button type="button" aria-label="Tháng trước" @click="changeMonth(-1)">‹</button><button type="button" @click="goToToday">Hôm nay</button><button type="button" aria-label="Tháng sau" @click="changeMonth(1)">›</button></div>
+              <div class="calendar-tools"><div class="button-group"><button type="button" aria-label="Tháng trước" @click="changeMonth(-1)">‹</button><button type="button" @click="goToToday">Hôm nay</button><button type="button" aria-label="Tháng sau" @click="changeMonth(1)">›</button></div><button v-if="canSchedule" type="button" class="primary add-shift-button" :disabled="busy" @click="createShiftOnSelectedDay">+ Phân ca mới</button></div>
             </div>
             <div class="calendar-wrap">
               <div class="calendar">
@@ -169,7 +207,7 @@ onMounted(() => w.perform(() => Promise.resolve(), ''))
     </div>
     <div v-if="modal" class="overlay" @click.self="modal=''" @keydown.esc="modal=''"><section class="dialog" role="dialog" aria-modal="true" :aria-label="modal==='shift'?'Phân ca làm việc':modal==='pay'?'Thiết lập lương':'Mời nhân viên'"><div class="dialog-heading"><h2>{{ modal==='shift'?'Phân ca làm việc':modal==='pay'?'Thiết lập lương':'Mời nhân viên' }}</h2><button aria-label="Đóng" @click="modal=''">×</button></div><div v-if="error" class="alert" role="alert">{{ error }}</div><form v-if="modal==='invite'" class="form" @submit.prevent="perform(()=>repo.insert('company_invitations',{company_id:companyId,email:inviteEmail.trim().toLowerCase()}),'Đã tạo lời mời.',true)"><label>Email nhân viên<input v-model="inviteEmail" required type="email"></label><p>Nhân viên đăng nhập bằng email được mời để chấp nhận.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Gửi lời mời</button></div></form>
       <form v-else-if="modal==='pay'" class="form" @submit.prevent="savePay"><p>Thiết lập cho {{ payForm.name }} tại {{ current?.name }}.</p><label>Loại nhân sự<select v-model="payForm.employment_type"><option value="employee">Nhân viên chính thức</option><option value="freelancer">Freelancer</option></select></label><label v-if="payForm.employment_type==='employee'">Lương cơ bản mỗi tháng (₫)<input v-model="payForm.monthly_base_vnd" type="number" min="0" max="99999999999999" step="1" required></label><label>Lương mỗi show (₫)<input v-model="payForm.show_rate_vnd" type="number" min="0" max="99999999999999" step="1" required></label><p>Đây là mức lương thỏa thuận, chưa phải bảng lương đã thanh toán.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu mức lương</button></div></form>
-      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><label>Địa điểm<input v-model="shift.location" required maxlength="250"></label><div class="form-grid"><label>Ngày bắt đầu<input v-model="shift.date" type="date" required @change="shift.end_date=shift.date"></label><label>Buổi<select @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required></label><label>Kết thúc<input v-model="shift.end" type="time" required></label></div><label>Ngày kết thúc<input v-model="shift.end_date" type="date" required></label><fieldset><legend>Nhân viên</legend><label v-for="m in members" :key="m.user_id" class="check"><input v-model="shift.user_ids" :value="m.user_id" type="checkbox">{{ m.full_name }} ({{ m.email }})</label><small v-if="!members.length">Chưa có thành viên để phân ca.</small></fieldset><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu phân ca</button></div></form>
+      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><label>Địa điểm<input v-model="shift.location" required maxlength="250"></label><div class="form-grid"><label>Ngày bắt đầu<input v-model="shift.date" type="date" required @change="shift.end_date=shift.date"></label><label>Buổi<select @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required></label><label>Kết thúc<input v-model="shift.end" type="time" required></label></div><label>Ngày kết thúc<input v-model="shift.end_date" type="date" required></label><fieldset><legend>Phân công nhân viên</legend><label v-for="m in staffMembers" :key="m.user_id" class="check"><input v-model="shift.user_ids" :value="m.user_id" type="checkbox">{{ m.full_name }} ({{ m.email }})</label><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy || !staffMembers.length">Lưu phân ca</button></div></form>
     </section></div>
   </div>
 </template>
