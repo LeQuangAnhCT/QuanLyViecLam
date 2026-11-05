@@ -1,6 +1,6 @@
 export const localDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
 export const hours = (shift) => ((new Date(shift.ends_at) - new Date(shift.starts_at)) / 3600000).toFixed(2)
-export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Chủ công ty', staff: 'Nhân viên' })[role] || 'Nhân viên'
+export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'Nhân viên' })[role] || 'Nhân viên'
 
 export function shiftRows(values, companyId, existingShifts = []) {
   const users = [...new Set((values.user_ids || []).filter(Boolean))]
