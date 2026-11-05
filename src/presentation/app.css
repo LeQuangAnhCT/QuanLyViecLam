@@ -147,3 +147,32 @@ button{transition:background .15s ease,border-color .15s ease}
   }
   .sidebar .side-bottom > div:last-child { min-width:0; }
 }
+
+
+/* Company context: owner sees a fixed company identity, never a redundant selector. */
+.company-context{flex:0 1 310px;max-width:100%;min-width:0}
+.company-identity{display:flex;flex-direction:column;gap:7px;padding:13px 18px;border:1px solid var(--border);background:#fff;border-radius:11px}
+.company-identity span{font-size:10px;letter-spacing:.1em;color:#7a7a7a;font-weight:750}
+.company-identity strong{font-size:14px;color:#202020;overflow-wrap:anywhere}
+.company-context .company-select{width:100%}
+.calendar-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.add-shift-button{min-height:42px;padding-inline:17px;font-weight:650}
+.no-staff-hint{padding:10px 0}
+.no-staff-hint p{font-size:13px;margin-bottom:12px}
+.no-staff-hint button{border-color:#222;color:#222}
+@media(min-width:801px){
+  .calendar-controls{align-items:center}
+  .day-detail .section-title{align-items:center}
+}
+@media(max-width:800px){
+  .company-context{flex:1 1 100%;width:100%}
+  .calendar-tools{justify-content:space-between;width:100%}
+}
+@media(max-width:600px){
+  .calendar-controls{flex-direction:column;align-items:stretch}
+  .calendar-controls p{display:block;font-size:11px}
+  .calendar-tools{flex-wrap:wrap;gap:8px}
+  .calendar-tools .button-group{flex:1}
+  .add-shift-button{flex:1 1 auto}
+  .company-identity{padding:12px}
+}
