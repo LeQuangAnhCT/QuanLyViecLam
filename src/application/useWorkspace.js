@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+import { preferredCompanyId } from '../domain/calendar.js'
 import { repository as repo } from '../infrastructure/repository'
 
 export function useWorkspace(user) {
@@ -26,7 +27,7 @@ export function useWorkspace(user) {
     const [all, memberships, invites, apps, own] = await Promise.all([repo.companies(), repo.memberships(user.id), repo.invitations(), repo.applications(), repo.profile(user.id)])
     directory.value = all || []
     companies.value = directory.value.map(c => ({ ...c, role: memberships?.find(m => m.company_id === c.id)?.role })).filter(c => isAdmin || c.role)
-    if (!companies.value.some(c => c.id === companyId.value)) companyId.value = companies.value.find(c => c.role === 'manager')?.id || companies.value[0]?.id || ''
+    companyId.value = preferredCompanyId(companies.value, companyId.value)
     invitations.value = (invites || []).filter(i => i.email.toLowerCase() === user.email?.toLowerCase())
     applications.value = apps || []; profile.value = own
     accounts.value = isAdmin ? await repo.accounts() : []
