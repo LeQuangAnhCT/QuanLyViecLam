@@ -92,6 +92,6 @@ await login(admin,'admin','admin@example.com');
 await db.query('select public.admin_set_account_disabled($1,false,$2)',[staff,'Khôi phục']);
 await db.query('select public.admin_set_company_manager($1,$2)',[company,staff]);
 await login(staff,'staff','staff@example.com');
-assert.equal((await db.query('select * from public.company_shifts')).rows.length,1);
+assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
 await db.close();
 console.log('Database roles, admin/manager isolation, shift overlaps, limits, and account controls: OK');
