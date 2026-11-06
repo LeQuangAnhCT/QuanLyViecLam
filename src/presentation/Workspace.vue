@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useWorkspace } from '../application/useWorkspace'
-import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/calendar'
+import { localDate, hours, roleLabel, shiftRows, shiftEditPlan, sameWorkSlot } from '../domain/calendar'
 import LocationPicker from './LocationPicker.vue'
 
 const props = defineProps({ user: { type: Object, required: true } })
@@ -40,12 +40,14 @@ async function saveAccountProfile() {
   finally { busy.value=false }
 }
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', cast_vnd: 300000, user_ids: [] })
-const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
+const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', monthly_allowance_vnd:0 })
 const reportMonth = ref(new Date(new Date().getFullYear(),new Date().getMonth(),1))
 const reportMonthText = computed(() => localDate(reportMonth.value))
 const monthlyReportTotals = computed(() => ({
   scheduled: payroll.value.reduce((a,row)=>a+Number(row.scheduled_shifts||0),0),
   completed: payroll.value.reduce((a,row)=>a+Number(row.completed_shifts||0),0),
+  hours: payroll.value.reduce((a,row)=>a+Number(row.worked_hours||0),0).toFixed(2),
+  cast: payroll.value.reduce((a,row)=>a+Number(row.cast_total_vnd||0),0),
   total: payroll.value.reduce((a,row)=>a+Number(row.estimated_total_vnd||0),0)
 }))
 function changeReportMonth(delta) { reportMonth.value = new Date(reportMonth.value.getFullYear(),reportMonth.value.getMonth()+delta,1) }
@@ -54,7 +56,13 @@ const typeShort = type => type==='employee' ? 'Chính thức' : type==='freelanc
 const ownCompensation = computed(() => compensation.value.find(p=>p.user_id===props.user.id))
 const ownScheduled = computed(() => shifts.value.filter(s => localDate(new Date(s.starts_at)).slice(0,7)===reportMonthText.value.slice(0,7)))
 const ownCompleted = computed(() => ownScheduled.value.filter(s => clockRecords.value.some(a=>a.shift_id===s.id && a.checked_out_at)))
-const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) + Number(ownCompensation.value?.show_rate_vnd||0)*ownCompleted.value.length)
+const ownActualHours = computed(() => ownCompleted.value.reduce((total,s) => {
+  const record=clockRecords.value.find(a=>a.shift_id===s.id && a.checked_out_at)
+  return total+(record? Math.max(0,(new Date(record.checked_out_at)-new Date(record.checked_in_at))/3600000):0)
+},0).toFixed(2))
+const ownCastTotal = computed(() => ownCompleted.value.reduce((total,s)=>total+Number(s.cast_vnd||0),0))
+const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) +
+  Number(ownCompensation.value?.monthly_allowance_vnd||0) + ownCastTotal.value)
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
 const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
 const selectableCompanies = computed(() => companies.value)
@@ -62,6 +70,10 @@ const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
 const clockRecordFor = shiftId => clockRecords.value.find(r => r.shift_id === shiftId)
 const editingShift = computed(() => shifts.value.find(s => s.id === editingShiftId.value))
+const editingCrew = computed(() => editingShift.value
+  ? shifts.value.filter(s=>sameWorkSlot(s,editingShift.value)) : [])
+const crewHasClocked = computed(() => editingCrew.value.some(s=>clockRecordFor(s.id)))
+const crewMemberClocked = userId => editingCrew.value.some(s=>s.user_id===userId && clockRecordFor(s.id))
 const canClockIn = item => {
   if (clockUnavailable.value || clockRecordFor(item.id)) return false
   const now=Date.now()
@@ -122,14 +134,21 @@ async function toggleMember(person) {
 const money = value => `${new Intl.NumberFormat('vi-VN').format(Number(value))} ₫`
 function openPay(member) {
   const pay = payFor(member.user_id)
-  Object.assign(payForm,{user_id:member.user_id,name:member.full_name,employment_type:pay?.employment_type || 'employee',monthly_base_vnd:pay?.monthly_base_vnd ?? '',show_rate_vnd:pay?.show_rate_vnd ?? ''})
+  Object.assign(payForm,{user_id:member.user_id,name:member.full_name,employment_type:pay?.employment_type || 'employee',monthly_base_vnd:pay?.monthly_base_vnd ?? '',monthly_allowance_vnd:pay?.monthly_allowance_vnd ?? 0})
   modal.value='pay'
 }
 function savePay() {
   const base = payForm.employment_type === 'freelancer' ? null : Number(payForm.monthly_base_vnd)
-  const rate = Number(payForm.show_rate_vnd)
-  if (payForm.show_rate_vnd === '' || (base !== null && payForm.monthly_base_vnd === '') || !Number.isSafeInteger(rate) || rate < 0 || (base !== null && (!Number.isSafeInteger(base) || base < 0))) { error.value='Hãy nhập số tiền hợp lệ, không âm.'; return }
-  perform(()=>repo.upsert('member_compensation',{company_id:companyId.value,user_id:payForm.user_id,employment_type:payForm.employment_type,monthly_base_vnd:base,show_rate_vnd:rate,updated_at:new Date().toISOString()}),'Đã lưu thông tin lương.',true)
+  const allowance = Number(payForm.monthly_allowance_vnd)
+  if (payForm.monthly_allowance_vnd === '' || (base !== null && payForm.monthly_base_vnd === '') ||
+      !Number.isSafeInteger(allowance) || allowance < 0 || allowance > 99999999999999 ||
+      (base !== null && (!Number.isSafeInteger(base) || base < 0 || base > 99999999999999))) {
+    error.value='Hãy nhập số tiền hợp lệ, không âm.'; return
+  }
+  perform(()=>repo.upsert('member_compensation',{
+    company_id:companyId.value,user_id:payForm.user_id,employment_type:payForm.employment_type,
+    monthly_base_vnd:base,monthly_allowance_vnd:allowance,updated_at:new Date().toISOString()
+  }),'Đã lưu thông tin lương.',true)
 }
 function shiftsForDate(dateText) {
   const start = new Date(dateText + 'T00:00:00')
@@ -144,24 +163,39 @@ const upcomingCount = computed(() => shifts.value.filter(s => new Date(s.starts_
 const selectedShifts = computed(() => shiftsForDate(selectedDate.value).sort((a,b) => new Date(a.starts_at) - new Date(b.starts_at)))
 const selectedDateLabel = computed(() => new Date(selectedDate.value + 'T12:00:00').toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
 const timeOf = stamp => new Date(stamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca làm việc. Chọn để xem chi tiết.`
+const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca. ${canSchedule.value ? 'Một chạm để tạo ca mới, hai chạm để mở ca đã có.' : 'Chạm để xem lịch.'}`
 function chooseDay(day) { selectedDate.value = localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day)) }
+let calendarTapTimer = null
+let calendarTap = { day: null, stamp: 0 }
 function clickCalendarCell(day) {
   chooseDay(day)
   if (!canSchedule.value) return
-  const items = shiftsForDate(selectedDate.value)
-  if (items.length === 0) openShift(day)
-  else if (items.length === 1) editShift(items[0])
-  else { error.value = ''; modal.value = 'shift-picker' }
+  const now = Date.now()
+  if (calendarTapTimer && calendarTap.day === day && now - calendarTap.stamp < 350) {
+    clearTimeout(calendarTapTimer)
+    calendarTapTimer = null
+    calendarTap = { day: null, stamp: 0 }
+    const items = shiftsForDate(selectedDate.value)
+    if (items.length === 1) editShift(items[0])
+    else if (items.length > 1) { error.value = ''; modal.value = 'shift-picker' }
+    else openShift(day)
+    return
+  }
+  if (calendarTapTimer) clearTimeout(calendarTapTimer)
+  calendarTap = { day, stamp: now }
+  calendarTapTimer = setTimeout(() => {
+    calendarTapTimer = null
+    if (calendarTap.day === day) {
+      calendarTap = { day: null, stamp: 0 }
+      openShift(day)
+    }
+  }, 350)
 }
 function chooseShiftStaff(userId, checked) {
-  if (editingShiftId.value) {
-    shift.user_ids = checked ? [userId] : []
-  } else {
-    shift.user_ids = checked
-      ? [...new Set([...shift.user_ids, userId])]
-      : shift.user_ids.filter(id => id !== userId)
-  }
+  if (editingShiftId.value && crewMemberClocked(userId) && !checked) return
+  shift.user_ids = checked
+    ? [...new Set([...shift.user_ids, userId])]
+    : shift.user_ids.filter(id => id !== userId)
 }
 function editShift(item) {
   if (!canSchedule.value) return
@@ -172,7 +206,8 @@ function editShift(item) {
   Object.assign(shift, {
     title: item.title, location: item.location || '',
     date: localDate(start), end_date: localDate(start),
-    start: timeOf(start), end: timeOf(end), cast_vnd: Number(item.cast_vnd || 0), user_ids: [item.user_id]
+    start: timeOf(start), end: timeOf(end), cast_vnd: Number(item.cast_vnd || 0),
+    user_ids: shifts.value.filter(s=>sameWorkSlot(s,item)).map(s=>s.user_id)
   })
   error.value = ''
   modal.value = 'shift'
@@ -205,44 +240,47 @@ async function confirmDisableAccount() {
 }
 async function saveShift() {
   if (!canSchedule.value) { error.value = 'Chỉ Manager mới được phân ca.'; return }
-  if (editingShiftId.value && clockRecordFor(editingShiftId.value) && Number(shift.cast_vnd) !== Number(editingShift.value?.cast_vnd ?? 0)) {
-    error.value = 'Ca đã chấm công, không thể thay đổi cast / thù lao.'
-    return
-  }
-  let rows
+  let rows = [], plan = null
   try {
     const eligible = new Set(staffMembers.value.map(m => m.user_id))
     if (!shift.user_ids.every(id => eligible.has(id))) throw new Error('Chỉ được phân ca cho nhân viên thuộc công ty.')
-    rows = editingShiftId.value ? shiftUpdate(shift, companyId.value, editingShiftId.value, shifts.value) : shiftRows(shift, companyId.value, shifts.value)
-  } catch (e) { error.value = e?.message || 'Ca làm việc chưa hợp lệ.'; return }
-  busy.value = true
-  error.value = ''
-  message.value = ''
+    if (editingShiftId.value) {
+      plan = shiftEditPlan(shift,companyId.value,editingShiftId.value,shifts.value,clockRecords.value.map(c=>c.shift_id))
+    } else rows = shiftRows(shift,companyId.value,shifts.value)
+  } catch(e) { error.value=e?.message || 'Ca làm việc chưa hợp lệ.'; return }
+  busy.value=true; error.value=''; message.value=''
   try {
-    if (editingShiftId.value) await repo.updateShift(editingShiftId.value, companyId.value, rows)
-    else await repo.insert('company_shifts', rows)
+    if (editingShiftId.value) {
+      const work=shiftRows({ ...shift, user_ids:[shift.user_ids[0]] },companyId.value,
+        shifts.value.filter(s=>!editingCrew.value.some(g=>g.id===s.id)))[0]
+      await repo.updateWorkAssignments(editingShiftId.value,work,shift.user_ids)
+    } else {
+      await repo.insert('company_shifts',rows)
+    }
   } catch (e) {
     const errors = {
-      '23P01': 'Nhân viên bị trùng ca, có thể với ca ở công ty khác. Hãy chọn giờ khác.',
-      '23503': 'Nhân viên không thuộc công ty này. Hãy tải lại danh sách thành viên.',
-      '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
-      '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
-      'P4511': 'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
-      'P4512': 'Ca đã chấm công, không được thay đổi cast / thù lao.',
-      'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
+      '23P01':'Nhân viên bị trùng ca, có thể ở công ty khác. Hãy chọn giờ khác.',
+      '23503':'Nhân viên không thuộc công ty này.',
+      '23514':'Thời lượng ca không hợp lệ.',
+      '42501':'Tài khoản chưa được cấp quyền phân ca.',
+      'P4510':'Ca đã chấm công, không được hủy.',
+      'P4511':'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
+      'P4512':'Ca đã chấm công, không được thay đổi Cast hoặc bỏ nhân viên đã chấm công.',
+      'P4561':'Chỉ Manager mới được cập nhật phân công.',
+      'PGRST202':'Cần chạy supabase/multi_staff_assignment.sql trong Supabase.',
+      'P4562':'Danh sách phân công hoặc dữ liệu ca chưa hợp lệ.',
+      'PGRST205':'Bảng lịch chưa tồn tại trong Supabase.'
     }
-    error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
-    busy.value = false
+    error.value=errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
+    busy.value=false
     return
   }
-  modal.value = ''
-  message.value = editingShiftId.value ? 'Đã cập nhật ca làm việc.' : `Đã lưu ${rows.length} ca làm việc thành công.`
-  editingShiftId.value = ''
-  try {
-    await w.refreshCompany()
-  } catch (e) {
-    error.value = 'Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
-  } finally { busy.value = false }
+  modal.value=''
+  message.value=editingShiftId.value ? `Đã cập nhật phân công cho ${shift.user_ids.length} nhân viên.` : `Đã lưu ${rows.length} ca làm việc thành công.`
+  editingShiftId.value=''
+  try { await w.refreshCompany() } catch(e) {
+    error.value='Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
+  } finally { busy.value=false }
 }
 async function removeShift(item) {
   if (!canSchedule.value || busy.value) return
@@ -314,6 +352,7 @@ onMounted(() => {
   },60000)
 })
 onUnmounted(() => {
+  if (calendarTapTimer) clearTimeout(calendarTapTimer)
   if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
   window.removeEventListener('focus',onWindowFocus)
   if (notificationPoll) window.clearInterval(notificationPoll)
@@ -430,7 +469,7 @@ onUnmounted(() => {
 
         <section v-if="tab==='payroll' && manager" class="surface section payroll-section">
           <div class="section-title">
-            <div><h2>Bảng công & lương ước tính</h2><p>Phân biệt nhân viên chính thức và thời vụ. Chỉ cộng tiền theo show đã chấm công ra; lương tháng là số thỏa thuận, chưa tính nghỉ phép hay khấu trừ.</p></div>
+            <div><h2>Bảng công & lương ước tính</h2><p>Giờ thực tế lấy từ chấm công vào/ra. Cast chỉ cộng khi ca hoàn tất; phụ cấp tháng và lương cơ bản là mức thỏa thuận hiện tại.</p></div>
             <div class="button-group payroll-month-controls">
               <button type="button" aria-label="Tháng trước" @click="changeReportMonth(-1)">‹</button>
               <b>{{ reportMonth.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}) }}</b>
@@ -443,12 +482,12 @@ onUnmounted(() => {
             <div class="overview-grid payroll-kpis">
               <div class="overview-tile"><span>Ca đã phân</span><strong>{{ monthlyReportTotals.scheduled }}</strong><small>Trong tháng</small></div>
               <div class="overview-tile"><span>Ca hoàn thành</span><strong>{{ monthlyReportTotals.completed }}</strong><small>Đã chấm công ra</small></div>
-              <div class="overview-tile"><span>Chi phí ước tính</span><strong class="payroll-money">{{ money(monthlyReportTotals.total) }}</strong><small>Theo mức hiện tại</small></div>
+              <div class="overview-tile"><span>Giờ thực tế</span><strong>{{ monthlyReportTotals.hours }}</strong><small>Giờ chấm công vào/ra</small></div><div class="overview-tile"><span>Cast hoàn tất</span><strong class="payroll-money">{{ money(monthlyReportTotals.cast) }}</strong><small>Ca đã chấm công ra</small></div><div class="overview-tile"><span>Chi phí ước tính</span><strong class="payroll-money">{{ money(monthlyReportTotals.total) }}</strong><small>Lương + phụ cấp tháng + Cast</small></div>
             </div>
             <div v-if="!payroll.length" class="empty">Chưa có nhân viên Staff trong công ty.</div>
             <div v-else class="payroll-table-wrap">
               <table class="payroll-table">
-                <thead><tr><th>Nhân viên</th><th>Loại</th><th>Ca phân</th><th>Ca hoàn tất</th><th>Giờ thực tế</th><th>Lương tháng</th><th>Tiền/show</th><th>Ước tính</th></tr></thead>
+                <thead><tr><th>Nhân viên</th><th>Loại</th><th>Ca phân</th><th>Ca hoàn tất</th><th>Giờ thực tế</th><th>Lương tháng</th><th>Phụ cấp/tháng</th><th>Cast hoàn tất</th><th>Ước tính</th></tr></thead>
                 <tbody><tr v-for="person in payroll" :key="person.user_id">
                   <td><b>{{ person.full_name }}</b><small>{{ person.email }}</small></td>
                   <td>{{ typeShort(person.employment_type) }}</td>
@@ -456,7 +495,7 @@ onUnmounted(() => {
                   <td>{{ person.completed_shifts }}</td>
                   <td>{{ person.worked_hours }} giờ</td>
                   <td>{{ person.employment_type==='employee' ? money(person.monthly_base_vnd) : '—' }}</td>
-                  <td>{{ money(person.show_rate_vnd) }}</td>
+                  <td>{{ money(person.monthly_allowance_vnd) }}</td><td>{{ money(person.cast_total_vnd) }}</td>
                   <td><b>{{ money(person.estimated_total_vnd) }}</b></td>
                 </tr></tbody>
               </table>
@@ -479,12 +518,12 @@ onUnmounted(() => {
           <template v-else>
             <div class="overview-grid payroll-kpis">
               <div class="overview-tile"><span>Loại nhân sự</span><strong class="payroll-type">{{ typeShort(ownCompensation.employment_type) }}</strong><small>{{ typeName(ownCompensation.employment_type) }}</small></div>
-              <div class="overview-tile"><span>Ca đã hoàn tất</span><strong>{{ ownCompleted.length }}/{{ ownScheduled.length }}</strong><small>Đã chấm công ra / đã phân</small></div>
+              <div class="overview-tile"><span>Ca đã hoàn tất</span><strong>{{ ownCompleted.length }}/{{ ownScheduled.length }}</strong><small>Đã chấm công ra / đã phân</small></div><div class="overview-tile"><span>Giờ thực tế</span><strong>{{ ownActualHours }}</strong><small>Giờ chấm công vào/ra</small></div>
               <div class="overview-tile"><span>Thu nhập ước tính</span><strong class="payroll-money">{{ money(ownIncomeEstimate) }}</strong><small>Không phải tiền đã thanh toán</small></div>
             </div>
-            <div class="income-rates"><p v-if="ownCompensation.employment_type==='employee'">Lương cơ bản thỏa thuận: <b>{{ money(ownCompensation.monthly_base_vnd) }}/tháng</b>.</p><p>Mức theo show hoàn tất: <b>{{ money(ownCompensation.show_rate_vnd) }}/show</b>.</p></div>
+            <div class="income-rates"><p v-if="ownCompensation.employment_type==='employee'">Lương cơ bản thỏa thuận: <b>{{ money(ownCompensation.monthly_base_vnd) }}/tháng</b>.</p><p>Phụ cấp hàng tháng: <b>{{ money(ownCompensation.monthly_allowance_vnd) }}/tháng</b>.</p><p>Cast từ ca đã hoàn tất: <b>{{ money(ownCastTotal) }}</b>.</p></div>
           </template>
-          <p class="payroll-disclaimer">Ước tính dùng mức lương hiện tại và chỉ tính ca đã chấm công ra. Chưa trừ tạm ứng, bảo hiểm, thuế hoặc xử lý nghỉ phép.</p>
+          <p class="payroll-disclaimer">Ước tính gồm lương cơ bản, phụ cấp tháng và Cast ca đã chấm công ra. Giờ thực tế không đồng nghĩa tiền theo giờ. Chưa trừ thuế, bảo hiểm, tạm ứng hoặc nghỉ phép.</p>
         </section>
 
         <section v-if="tab==='people'" class="surface section people-section">
@@ -514,7 +553,7 @@ onUnmounted(() => {
             <div v-for="person in group.items" :key="person.user_id" class="row member-row" :class="{'member-paused': !person.is_active}">
               <div class="member-identity">
                 <b>{{ person.full_name }}</b><small>{{ person.email }}</small>
-                <small v-if="manager && payFor(person.user_id)">{{ payFor(person.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(person.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Theo show: {{ money(payFor(person.user_id).show_rate_vnd) }}</small>
+                <small v-if="manager && payFor(person.user_id)">{{ payFor(person.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(person.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Phụ cấp/tháng: {{ money(payFor(person.user_id).monthly_allowance_vnd) }}</small>
                 <small v-if="!person.is_active">Đã tạm ngừng · Lịch cũ và chấm công vẫn được giữ</small>
               </div>
               <div class="row-actions">
@@ -541,7 +580,7 @@ onUnmounted(() => {
       </main>
     </div>
     <div v-if="modal" class="overlay" @click.self="modal=''" @keydown.esc="modal=''"><section class="dialog" :class="{'dialog-small':modal==='disable-account'}" role="dialog" aria-modal="true" :aria-label="modal==='disable-account'?'Vô hiệu hóa tài khoản':modal==='shift'?(editingShiftId?'Cập nhật ca làm việc':'Phân ca làm việc'):modal==='shift-picker'?'Chọn ca để sửa':modal==='pay'?'Thiết lập lương':'Mời nhân viên'"><div class="dialog-heading"><h2>{{ modal==='disable-account'?'Vô hiệu hóa tài khoản':modal==='shift'?(editingShiftId?'Cập nhật ca làm việc':'Phân ca làm việc'):modal==='shift-picker'?'Chọn ca để sửa':modal==='pay'?'Thiết lập lương':'Mời nhân viên' }}</h2><button aria-label="Đóng" @click="modal=''">×</button></div><div v-if="error" class="alert" role="alert">{{ error }}</div><form v-if="modal==='disable-account'" class="form" @submit.prevent="confirmDisableAccount"><p>Nhập lý do vô hiệu hóa tài khoản {{ disableTarget?.full_name || disableTarget?.email }}.</p><label>Lý do<input v-model="disableReason" required minlength="5" maxlength="500" placeholder="Ít nhất 5 ký tự" autofocus></label><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Xác nhận</button></div></form><form v-else-if="modal==='invite'" class="form" @submit.prevent="perform(()=>repo.insert('company_invitations',{company_id:companyId,email:inviteEmail.trim().toLowerCase()}),'Đã tạo lời mời.',true)"><label>Email nhân viên<input v-model="inviteEmail" required type="email"></label><p>Nhân viên đăng nhập bằng email được mời để chấp nhận.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Gửi lời mời</button></div></form>
-      <form v-else-if="modal==='pay'" class="form" @submit.prevent="savePay"><p>Thiết lập cho {{ payForm.name }} tại {{ current?.name }}.</p><label>Loại nhân sự<select v-model="payForm.employment_type"><option value="employee">Nhân viên chính thức</option><option value="freelancer">Nhân viên thời vụ</option></select></label><label v-if="payForm.employment_type==='employee'">Lương cơ bản mỗi tháng (₫)<input v-model="payForm.monthly_base_vnd" type="number" min="0" max="99999999999999" step="1" required></label><label>{{ payForm.employment_type==='employee' ? 'Phụ cấp mỗi show hoàn tất (₫)' : 'Tiền công mỗi show hoàn tất (₫)' }}<input v-model="payForm.show_rate_vnd" type="number" min="0" max="99999999999999" step="1" required></label><p>Nhân viên chính thức: lương cơ bản theo tháng + phụ cấp show nếu có. Nhân viên thời vụ: chỉ nhận tiền theo show hoàn tất. Đây là mức thỏa thuận hiện tại, không phải bảng lương đã thanh toán.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu mức lương</button></div></form>
+      <form v-else-if="modal==='pay'" class="form" @submit.prevent="savePay"><p>Thiết lập cho {{ payForm.name }} tại {{ current?.name }}.</p><label>Loại nhân sự<select v-model="payForm.employment_type"><option value="employee">Nhân viên chính thức</option><option value="freelancer">Nhân viên thời vụ</option></select></label><label v-if="payForm.employment_type==='employee'">Lương cơ bản mỗi tháng (₫)<input v-model="payForm.monthly_base_vnd" type="number" min="0" max="99999999999999" step="1" required></label><label>Phụ cấp hàng tháng (₫)<input v-model.number="payForm.monthly_allowance_vnd" type="number" min="0" max="99999999999999" step="1" required></label><p>Nhân viên chính thức: lương cơ bản + phụ cấp tháng + Cast của các ca đã hoàn thành. Nhân viên thời vụ: phụ cấp tháng (nếu có) + Cast của các ca đã hoàn thành.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu mức lương</button></div></form>
       <section v-else-if="modal==='shift-picker'" class="shift-picker">
         <p>Ngày {{ selectedDateLabel }} có nhiều ca. Chọn ca cần sửa hoặc tạo ca mới.</p>
         <div v-for="item in selectedShifts" :key="item.id" class="row">
@@ -550,9 +589,9 @@ onUnmounted(() => {
         </div>
         <div class="form-actions"><button type="button" @click="modal=''">Đóng</button><button type="button" class="primary" @click="createShiftOnSelectedDay">+ Thêm ca khác</button></div>
       </section>
-      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><div class="location-field"><span class="location-title">Địa điểm ca làm</span><LocationPicker v-model="shift.location" required detail-label="Tên địa điểm / số nhà, đường (tùy chọn)" /></div><div class="form-grid"><label>Ngày làm việc<input :value="new Date(shift.date + 'T12:00:00').toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'})" readonly aria-label="Ngày làm việc"></label><label>Buổi<select :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label><label>Kết thúc<input v-model="shift.end" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label></div><label>Cast / thù lao ca (VNĐ)<input v-model.number="shift.cast_vnd" type="number" min="0" max="100000000" step="1000" inputmode="numeric" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" required></label><div class="cast-presets" role="group" aria-label="Chọn nhanh mức cast"><button v-for="amount in [300,400,500,600,700,1000]" :key="amount" type="button" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" :class="{selected: Number(shift.cast_vnd) === amount*1000}" :aria-pressed="Number(shift.cast_vnd) === amount*1000" @click="shift.cast_vnd=amount*1000">{{ amount === 1000 ? '1.000' : amount }}K</button></div><fieldset><legend>Phân công nhân viên</legend><label v-for="m in staffMembers" :key="m.user_id" class="check"><input :checked="shift.user_ids.includes(m.user_id)" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" :value="m.user_id" type="checkbox" @change="chooseShiftStaff(m.user_id, $event.target.checked)">{{ m.full_name }} · {{ typeShort(payFor(m.user_id)?.employment_type) }} ({{ m.email }})</label><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions">
-          <button v-if="editingShift && !clockRecordFor(editingShiftId)" type="button" class="danger-quiet" :disabled="busy" @click="removeShift(editingShift)">Hủy ca</button>
-          <span v-if="editingShift && clockRecordFor(editingShiftId)" class="clock-locked">Ca đã chấm công, không thể hủy, đổi giờ, nhân viên hoặc cast</span>
+      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><div class="location-field"><span class="location-title">Địa điểm ca làm</span><LocationPicker v-model="shift.location" required detail-label="Tên địa điểm / số nhà, đường (tùy chọn)" /></div><div class="form-grid"><label>Ngày làm việc<input :value="new Date(shift.date + 'T12:00:00').toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'})" readonly aria-label="Ngày làm việc"></label><label>Buổi<select :disabled="!!(editingShiftId && crewHasClocked)" @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required :disabled="!!(editingShiftId && crewHasClocked)"></label><label>Kết thúc<input v-model="shift.end" type="time" required :disabled="!!(editingShiftId && crewHasClocked)"></label></div><label>Cast / thù lao ca (VNĐ)<input v-model.number="shift.cast_vnd" type="number" min="0" max="100000000" step="1000" inputmode="numeric" :disabled="!!(editingShiftId && crewHasClocked)" required></label><div class="cast-presets" role="group" aria-label="Chọn nhanh mức cast"><button v-for="amount in [300,400,500,600,700,1000]" :key="amount" type="button" :disabled="!!(editingShiftId && crewHasClocked)" :class="{selected: Number(shift.cast_vnd) === amount*1000}" :aria-pressed="Number(shift.cast_vnd) === amount*1000" @click="shift.cast_vnd=amount*1000">{{ amount === 1000 ? '1.000' : amount }}K</button></div><fieldset><legend>Phân công nhân viên</legend><label v-for="m in staffMembers" :key="m.user_id" class="check"><input :checked="shift.user_ids.includes(m.user_id)" :disabled="!!(editingShiftId && crewMemberClocked(m.user_id))" :value="m.user_id" type="checkbox" @change="chooseShiftStaff(m.user_id, $event.target.checked)">{{ m.full_name }} · {{ typeShort(payFor(m.user_id)?.employment_type) }} ({{ m.email }})</label><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions">
+          <button v-if="editingShift && !crewHasClocked" type="button" class="danger-quiet" :disabled="busy" @click="removeShift(editingShift)">Hủy ca</button>
+          <span v-if="editingShift && crewHasClocked" class="clock-locked">Ca đã chấm công, không thể hủy, đổi giờ, nhân viên hoặc cast</span>
           <button type="button" @click="modal=''">Đóng</button>
           <button class="primary" :disabled="busy || !staffMembers.length"> {{ editingShiftId ? 'Lưu thay đổi' : 'Lưu phân ca' }}</button>
         </div></form>

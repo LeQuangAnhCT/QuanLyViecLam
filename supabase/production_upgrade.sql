@@ -463,6 +463,8 @@ create trigger validate_staff_shift
 -- Read-only monthly preview. This is NOT a payroll payment or payslip.
 -- Values use CURRENT compensation rates and completed check-outs; historical
 -- rates, statutory deductions, leave rules and proration are not modeled.
+-- Allow rerunning after new report signature was installed in previous deployment.
+drop function if exists public.company_staff_summary(uuid,date);
 create or replace function public.company_staff_summary(p_company uuid,p_month date)
 returns table (
   user_id uuid, full_name text, email text,
@@ -611,5 +613,239 @@ revoke all on function public.clock_in_shift(uuid) from public;
 grant execute on function public.clock_in_shift(uuid) to authenticated;
 
 -- <<< END supabase/staff_lifecycle.sql
+
+-- Manager profile / notifications / multi-person work & monthly Cast payroll (non-destructive)
+-- SOURCE: supabase/manager_location_cast.sql
+-- Run after FULL_SETUP_FROM_SCRATCH.sql on new projects or on an existing Shiftly database.
+alter table public.profiles add column if not exists active_location text;
+grant update (active_location) on public.profiles to authenticated;
+alter table public.company_shifts add column if not exists cast_vnd bigint not null default 0;
+alter table public.company_shifts drop constraint if exists company_shifts_cast_vnd_check;
+alter table public.company_shifts add constraint company_shifts_cast_vnd_check check (cast_vnd between 0 and 100000000);
+-- Existing manager shift INSERT/UPDATE RLS policies remain in force.
+
+-- SOURCE: supabase/manager_notifications.sql
+-- Run after shift_notifications.sql and shift_attendance.sql.
+-- Managers receive durable in-app notifications for attendance and join requests.
+alter table public.shift_notifications drop constraint if exists shift_notifications_event_check;
+alter table public.shift_notifications add constraint shift_notifications_event_check
+  check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request'));
+
+create or replace function public.notify_manager_activity()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare
+  manager_id uuid;
+  shift_title text;
+  staff_name text;
+  event_name text;
+  heading text;
+  details text;
+begin
+  select m.user_id into manager_id from public.company_members m
+    where m.company_id = new.company_id and m.role = 'manager' limit 1;
+  if manager_id is null or manager_id = new.user_id then return new; end if;
+  select coalesce(p.full_name, u.email, 'Nhân viên') into staff_name
+    from auth.users u left join public.profiles p on p.id = u.id where u.id = new.user_id;
+  if tg_table_name = 'shift_attendance' then
+    if tg_op = 'INSERT' then
+      event_name := 'attendance_in';
+      heading := 'Nhân viên đã chấm công vào';
+    elsif old.checked_out_at is null and new.checked_out_at is not null then
+      event_name := 'attendance_out';
+      heading := 'Nhân viên đã chấm công ra';
+    else
+      return new;
+    end if;
+    select s.title into shift_title from public.company_shifts s where s.id = new.shift_id;
+    details := format('%s · %s · %s', staff_name, coalesce(shift_title,'Ca làm việc'),
+      to_char(coalesce(new.checked_out_at,new.checked_in_at) at time zone 'Asia/Ho_Chi_Minh','DD/MM/YYYY HH24:MI'));
+    insert into public.shift_notifications(user_id,company_id,shift_id,event,title,body)
+      values(manager_id,new.company_id,new.shift_id,event_name,heading,details);
+  elsif tg_table_name = 'company_join_requests' and new.status = 'pending'
+      and (tg_op = 'INSERT' or old.status is distinct from new.status) then
+    insert into public.shift_notifications(user_id,company_id,shift_id,event,title,body)
+      values(manager_id,new.company_id,null,'join_request','Có yêu cầu gia nhập công ty',
+        format('%s vừa gửi yêu cầu tham gia công ty.',staff_name));
+  end if;
+  return new;
+end $$;
+revoke all on function public.notify_manager_activity() from public;
+drop trigger if exists notify_manager_attendance on public.shift_attendance;
+create trigger notify_manager_attendance
+after insert or update of checked_out_at on public.shift_attendance
+for each row execute function public.notify_manager_activity();
+drop trigger if exists notify_manager_join_request on public.company_join_requests;
+create trigger notify_manager_join_request
+after insert or update of status on public.company_join_requests
+for each row execute function public.notify_manager_activity();
+
+-- SOURCE: supabase/lock_clocked_shift_cast.sql
+-- Upgrade existing Shiftly database. Run in Supabase SQL Editor.
+-- A checked-in shift's cast is immutable even through direct API calls.
+create or replace function public.protect_clocked_shift()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if not exists(select 1 from public.shift_attendance where shift_id=OLD.id) then
+    if TG_OP='DELETE' then return OLD; end if;
+    return NEW;
+  end if;
+  if TG_OP='DELETE' then
+    raise exception 'Không thể hủy ca đã có chấm công' using errcode='P4510';
+  end if;
+  if (NEW.user_id,NEW.starts_at,NEW.ends_at)
+     is distinct from (OLD.user_id,OLD.starts_at,OLD.ends_at) then
+    raise exception 'Ca đã chấm công: không được thay nhân viên hoặc thời gian' using errcode='P4511';
+  end if;
+  if NEW.cast_vnd is distinct from OLD.cast_vnd then
+    raise exception 'Ca đã chấm công: không được thay đổi cast / thù lao' using errcode='P4512';
+  end if;
+  return NEW;
+end $$;
+revoke all on function public.protect_clocked_shift() from public;
+
+-- SOURCE: supabase/multi_staff_assignment.sql
+-- Atomic Manager edit of all members assigned to an identical job/time/location/cast.
+-- Legacy data has one row per Staff, so matching attributes define the job group.
+create or replace function public.manager_update_work_assignments(
+  p_shift uuid, p_users uuid[], p_title text, p_location text,
+  p_starts_at timestamptz, p_ends_at timestamptz, p_cast_vnd bigint
+) returns void language plpgsql security definer set search_path=public as $$
+declare
+  original public.company_shifts;
+  assignment public.company_shifts;
+  selected_ids uuid[];
+  prior_ids uuid[];
+  target_id uuid;
+begin
+  select * into original from public.company_shifts where id=p_shift for update;
+  if original.id is null then
+    raise exception 'Không tìm thấy ca làm cần cập nhật' using errcode='P4560';
+  end if;
+  if not public.account_active()
+    or coalesce(auth.jwt()->'app_metadata'->>'role','')='admin'
+    or not exists(select 1 from public.company_members cm
+      where cm.company_id=original.company_id and cm.user_id=auth.uid() and cm.role='manager') then
+    raise exception 'Chỉ Manager được thay đổi phân công' using errcode='P4561';
+  end if;
+  select array_agg(distinct u) into selected_ids from unnest(p_users) as x(u) where u is not null;
+  if selected_ids is null or cardinality(selected_ids)=0
+    or nullif(btrim(p_title),'') is null or nullif(btrim(p_location),'') is null
+    or p_starts_at is null or p_ends_at is null or p_ends_at<=p_starts_at
+    or p_ends_at>p_starts_at+interval '24 hours'
+    or p_cast_vnd is null or p_cast_vnd < 0 or p_cast_vnd > 100000000 then
+    raise exception 'Dữ liệu phân ca không hợp lệ' using errcode='P4562';
+  end if;
+  -- Protect the entire work group, including shifts already checked in.
+  if exists (
+    select 1 from public.company_shifts s
+    join public.shift_attendance a on a.shift_id=s.id
+    where s.company_id=original.company_id
+      and s.title=original.title and coalesce(s.location,'')=coalesce(original.location,'')
+      and s.starts_at=original.starts_at and s.ends_at=original.ends_at
+      and s.cast_vnd=original.cast_vnd
+      and (not (s.user_id=any(selected_ids))
+        or s.starts_at<>p_starts_at or s.ends_at<>p_ends_at or s.cast_vnd<>p_cast_vnd)
+  ) then
+    raise exception 'Không thể bỏ nhân viên đã chấm công hoặc thay giờ/Cast' using errcode='P4512';
+  end if;
+  -- Lock matching assignments before the changes to avoid stale membership.
+  perform 1 from public.company_shifts s
+    where s.company_id=original.company_id
+      and s.title=original.title and coalesce(s.location,'')=coalesce(original.location,'')
+      and s.starts_at=original.starts_at and s.ends_at=original.ends_at
+      and s.cast_vnd=original.cast_vnd
+    for update;
+  select array_agg(s.user_id) into prior_ids from public.company_shifts s
+    where s.company_id=original.company_id
+      and s.title=original.title and coalesce(s.location,'')=coalesce(original.location,'')
+      and s.starts_at=original.starts_at and s.ends_at=original.ends_at
+      and s.cast_vnd=original.cast_vnd;
+  for assignment in
+    select * from public.company_shifts s
+    where s.company_id=original.company_id
+      and s.title=original.title and coalesce(s.location,'')=coalesce(original.location,'')
+      and s.starts_at=original.starts_at and s.ends_at=original.ends_at
+      and s.cast_vnd=original.cast_vnd
+  loop
+    if assignment.user_id=any(selected_ids) then
+      update public.company_shifts set title=btrim(p_title),location=btrim(p_location),
+        starts_at=p_starts_at,ends_at=p_ends_at,cast_vnd=p_cast_vnd
+        where id=assignment.id;
+    else
+      delete from public.company_shifts where id=assignment.id;
+    end if;
+  end loop;
+  foreach target_id in array selected_ids loop
+    if not (target_id=any(prior_ids)) then
+      insert into public.company_shifts(company_id,user_id,title,location,starts_at,ends_at,cast_vnd)
+      values (original.company_id,target_id,btrim(p_title),btrim(p_location),p_starts_at,p_ends_at,p_cast_vnd);
+    end if;
+  end loop;
+end $$;
+revoke all on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) from public;
+grant execute on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) to authenticated;
+notify pgrst, 'reload schema';
+
+-- SOURCE: supabase/monthly_cast_payroll.sql
+-- Non-destructive upgrade: replace legacy per-show estimate with per-shift Cast
+-- and a monthly allowance. Historic show_rate_vnd stays for compatibility but is ignored.
+alter table public.member_compensation
+  add column if not exists monthly_allowance_vnd numeric(14,0) not null default 0;
+alter table public.member_compensation drop constraint if exists member_compensation_monthly_allowance_valid;
+alter table public.member_compensation add constraint member_compensation_monthly_allowance_valid
+  check (monthly_allowance_vnd >= 0);
+alter table public.member_compensation alter column show_rate_vnd set default 0;
+
+-- PostgreSQL requires DROP before changing an existing table-return signature.
+drop function if exists public.company_staff_summary(uuid,date);
+create function public.company_staff_summary(p_company uuid,p_month date)
+returns table (
+  user_id uuid, full_name text, email text, employment_type text,
+  monthly_base_vnd numeric, monthly_allowance_vnd numeric,
+  scheduled_shifts bigint, completed_shifts bigint, worked_hours numeric,
+  cast_total_vnd numeric, estimated_total_vnd numeric
+)
+language plpgsql stable security definer set search_path=public as $$
+declare first_day timestamptz; next_month timestamptz;
+begin
+  if p_month is null or not public.account_active()
+    or coalesce(auth.jwt()->'app_metadata'->>'role','')='admin'
+    or not exists (
+      select 1 from public.company_members m where m.company_id=p_company
+        and m.user_id=auth.uid() and m.role='manager'
+    ) then
+    raise exception 'Chỉ Manager của công ty được xem bảng công và lương'
+      using errcode='P4543';
+  end if;
+  first_day := (date_trunc('month',p_month::timestamp) at time zone 'Asia/Ho_Chi_Minh');
+  next_month := ((date_trunc('month',p_month::timestamp) + interval '1 month') at time zone 'Asia/Ho_Chi_Minh');
+  return query
+  select m.user_id,
+    coalesce(u.raw_user_meta_data->>'full_name',u.email::text)::text,
+    u.email::text,
+    p.employment_type::text,
+    p.monthly_base_vnd::numeric,
+    p.monthly_allowance_vnd::numeric,
+    count(s.id)::bigint,
+    count(a.shift_id) filter (where a.checked_out_at is not null)::bigint,
+    round(coalesce(sum(extract(epoch from (a.checked_out_at-a.checked_in_at))/3600.0)
+      filter (where a.checked_out_at is not null),0)::numeric,2),
+    coalesce(sum(s.cast_vnd) filter (where a.checked_out_at is not null),0)::numeric,
+    (coalesce(p.monthly_base_vnd,0) + p.monthly_allowance_vnd +
+      coalesce(sum(s.cast_vnd) filter (where a.checked_out_at is not null),0))::numeric
+  from public.company_members m
+    join auth.users u on u.id=m.user_id
+    join public.member_compensation p on p.company_id=m.company_id and p.user_id=m.user_id
+    left join public.company_shifts s on s.company_id=m.company_id and s.user_id=m.user_id
+      and s.starts_at>=first_day and s.starts_at<next_month
+    left join public.shift_attendance a on a.shift_id=s.id
+  where m.company_id=p_company and m.role='staff'
+  group by m.user_id,u.email,u.raw_user_meta_data,p.employment_type,
+    p.monthly_base_vnd,p.monthly_allowance_vnd
+  order by coalesce(u.raw_user_meta_data->>'full_name',u.email::text);
+end $$;
+revoke all on function public.company_staff_summary(uuid,date) from public;
+grant execute on function public.company_staff_summary(uuid,date) to authenticated;
+notify pgrst, 'reload schema';
 
 commit;

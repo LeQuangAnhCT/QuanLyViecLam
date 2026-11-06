@@ -18,6 +18,10 @@ export const repository = {
   memberStatuses: id => data(supabase.from('company_members').select('user_id,is_active').eq('company_id',id)),
   compensation: id => data(supabase.from('member_compensation').select('*').eq('company_id', id)),
   staffSummary: (companyId, monthDate) => data(supabase.rpc('company_staff_summary',{p_company:companyId,p_month:monthDate})),
+  updateWorkAssignments: (shiftId, changes, userIds) => data(supabase.rpc('manager_update_work_assignments', {
+    p_shift: shiftId, p_users: userIds, p_title: changes.title, p_location: changes.location,
+    p_starts_at: changes.starts_at, p_ends_at: changes.ends_at, p_cast_vnd: changes.cast_vnd
+  })),
   shifts: id => data(supabase.from('company_shifts').select('*').eq('company_id', id).order('starts_at')),
   attendance: id => data(supabase.from('shift_attendance')
     .select('shift_id,company_id,user_id,checked_in_at,checked_out_at').eq('company_id',id)),

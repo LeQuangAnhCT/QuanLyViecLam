@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hours, shiftRows, roleLabel, preferredCompanyId, shiftUpdate } from '../src/domain/calendar.js'
+import { hours, shiftRows, roleLabel, preferredCompanyId, shiftUpdate, shiftEditPlan, sameWorkSlot } from '../src/domain/calendar.js'
 
 const input = { title: '  Lắp sân khấu  ', location: 'Nhà hát', date: '2026-11-05', end_date: '2026-11-05', start: '08:00', end: '12:00', cast_vnd: 300000, user_ids: ['one', 'two'] }
 const rows = shiftRows(input, 'company')
@@ -27,4 +27,18 @@ assert.equal(changed.user_id,'one')
 assert.throws(()=>shiftUpdate({...input,user_ids:['one','two']},'company','one-shift',[current]),/một nhân viên/)
 assert.throws(()=>shiftUpdate({...input,user_ids:['one']},'company','one-shift',[current,{...rows[1], user_id:'one', id:'another'}]),/trùng/)
 assert.equal(rows[0].cast_vnd,300000)
+
+const group = [{...rows[0],id:'shift-a'},{...rows[1],id:'shift-b'}]
+assert.equal(sameWorkSlot(group[0],group[1]),true)
+const crewPlan = shiftEditPlan({...input,user_ids:['one','two','three']},'company','shift-a',group)
+assert.equal(crewPlan.updates.length,2)
+assert.deepEqual(crewPlan.addedRows.map(x=>x.user_id),['three'])
+assert.deepEqual(crewPlan.removedIds,[])
+const clockedPlan = shiftEditPlan({...input,user_ids:['one','two','three']},'company','shift-a',group,['shift-a'])
+assert.equal(clockedPlan.addedRows.length,1)
+assert.throws(()=>shiftEditPlan({...input,user_ids:['two']},'company','shift-a',group,['shift-a']),/đã chấm công/)
+assert.throws(()=>shiftEditPlan({...input,cast_vnd:400000},'company','shift-a',group,['shift-a']),/Cast/)
+const removedPlan = shiftEditPlan({...input,user_ids:['one']},'company','shift-a',group)
+assert.deepEqual(removedPlan.removedIds,['shift-b'])
+
 console.log('Single-day shift validation, cast, duplicates, overlap and roles: OK')
