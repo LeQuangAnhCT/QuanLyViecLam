@@ -797,6 +797,9 @@ begin
      is distinct from (OLD.user_id,OLD.starts_at,OLD.ends_at) then
     raise exception 'Ca đã chấm công: không được thay nhân viên hoặc thời gian' using errcode='P4511';
   end if;
+  if (to_jsonb(NEW)->'cast_vnd') is distinct from (to_jsonb(OLD)->'cast_vnd') then
+    raise exception 'Ca đã chấm công: không được thay đổi tiền cast' using errcode='P4512';
+  end if;
   return NEW;
 end $$;
 revoke all on function public.protect_clocked_shift() from public;
