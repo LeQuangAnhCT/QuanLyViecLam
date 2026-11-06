@@ -161,3 +161,11 @@ Chạy `npm run dev`, mở trang `/tests/role.html?role=admin`, `?role=manager` 
 - Màn hình báo cáo tổng hợp giờ công và xuất bảng lương.
 
 Không nên gọi các tính năng trên là đã hoàn thành chỉ vì hiện có màn hình giờ công dự kiến.
+
+## Manager: khu vực hoạt động, cast và thông báo (2026-11)
+
+- Trong **Hồ sơ của tôi**, Manager nhập **Quê quán** và **Khu vực đang hoạt động** bằng tỉnh/thành phố, phường/xã. Bộ chọn có ô tìm kiếm; khu vực hoạt động tự điền vào địa điểm ca mới, có thể thay đổi ngay trong form phân ca.
+- Ca làm mới chỉ có **một ngày** (ngày lấy từ ô lịch và không sửa trong biểu mẫu). Ngày hiển thị thứ, ngày và tháng, không hiện năm. Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.
+- Trường **Cast / thù lao ca** lưu số tiền VND; gợi ý 300K, 400K, 500K, 600K, 700K, 1.000K hoặc tự nhập. Đây là thù lao dự kiến của ca, chưa tự động cộng vào bảng lương hiện tại.
+- Manager có tab **Thông báo**: nhân viên chấm công vào/ra và yêu cầu gia nhập công ty; có số lượng chưa đọc và đánh dấu đã đọc. Staff vẫn nhận thông báo ca làm như trước.
+- **Database cũ**: chạy `supabase/manager_location_cast.sql` rồi `supabase/manager_notifications.sql` trong Supabase SQL Editor. **Database mới**: dùng `supabase/FULL_SETUP_FROM_SCRATCH.sql` đã tích hợp hai thay đổi. Push GitHub không tự chạy SQL.
