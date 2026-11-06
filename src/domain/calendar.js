@@ -31,10 +31,17 @@ export function preferredCompanyId(companies, previousId = '') {
 }
 
 /** Validate an edit without detecting the original row as an overlap. */
-export function shiftUpdate(values, companyId, shiftId, existingShifts = []) {
+export function shiftUpdate(values, companyId, shiftId, existingShifts = [], hasClockedIn = false) {
   if (!shiftId) throw new Error('Không tìm thấy ca làm cần sửa.')
+  const original = existingShifts.find(s => s.id === shiftId)
   const rows = shiftRows(values, companyId, existingShifts.filter(s => s.id !== shiftId))
   if (rows.length !== 1) throw new Error('Mỗi lần cập nhật chỉ chọn một nhân viên.')
   const { company_id, ...changes } = rows[0]
+  if (hasClockedIn && original) {
+    if (Number(changes.cast_vnd) !== Number(original.cast_vnd || 0))
+      throw new Error('Ca đã chấm công: không được thay đổi tiền cast.')
+    if (changes.user_id !== original.user_id || changes.starts_at !== original.starts_at || changes.ends_at !== original.ends_at)
+      throw new Error('Ca đã chấm công: không được đổi nhân viên hoặc giờ làm.')
+  }
   return changes
 }
