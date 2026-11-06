@@ -228,6 +228,7 @@ async function saveShift() {
       '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
       '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
       'P4511': 'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
+      'P4512': 'Ca đã chấm công, không được thay đổi cast / thù lao.',
       'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
     }
     error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
