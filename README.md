@@ -169,3 +169,7 @@ Không nên gọi các tính năng trên là đã hoàn thành chỉ vì hiện 
 - Trường **Cast / thù lao ca** lưu số tiền VND; gợi ý 300K, 400K, 500K, 600K, 700K, 1.000K hoặc tự nhập. Đây là thù lao dự kiến của ca, chưa tự động cộng vào bảng lương hiện tại.
 - Manager có tab **Thông báo**: nhân viên chấm công vào/ra và yêu cầu gia nhập công ty; có số lượng chưa đọc và đánh dấu đã đọc. Staff vẫn nhận thông báo ca làm như trước.
 - **Database cũ**: chạy `supabase/manager_location_cast.sql` rồi `supabase/manager_notifications.sql` trong Supabase SQL Editor. **Database mới**: dùng `supabase/FULL_SETUP_FROM_SCRATCH.sql` đã tích hợp hai thay đổi. Push GitHub không tự chạy SQL.
+
+### Khóa cast sau chấm công và giữ giao diện chọn nhân viên
+
+Khi cập nhật ca, Manager vẫn thấy danh sách nhân viên dạng checkbox giống lúc tạo ca, nhưng mỗi ca hiện hữu chỉ có thể gán cho một người. Sau khi nhân viên đã chấm công vào, checkbox chọn nhân viên, giờ làm và trường/nút cast đều bị khóa; database cũng từ chối mọi yêu cầu đổi cast trực tiếp với lỗi `P4512`. Với Supabase đang chạy, áp dụng `supabase/lock_clocked_shift_cast.sql` trong SQL Editor; bản cài đặt mới đã bao gồm migration này.
