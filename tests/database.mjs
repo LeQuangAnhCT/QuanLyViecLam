@@ -119,7 +119,9 @@ assert.equal(seasonalPreview.rows.find(x=>x.user_id===outsider).employment_type,
 const temp = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Temporary',now()+interval '2 days',now()+interval '2 days 4 hours') returning id",[company,outsider]);
 await db.query("update public.company_shifts set location='Hall B' where id=$1",[temp.rows[0].id]);
 await db.query("delete from public.company_shifts where id=$1",[temp.rows[0].id]);
-assert.equal((await db.query('select * from public.shift_notifications')).rows.length,0);
+const managerMessages = await db.query('select * from public.shift_notifications');
+assert.ok(managerMessages.rows.length >= 1, 'Manager should receive activity notifications');
+assert.ok(managerMessages.rows.every(row => row.user_id === manager));
 await login(outsider,'staff','other@example.com');
 const otherMessages = await db.query("select event from public.shift_notifications order by created_at");
 assert.deepEqual(otherMessages.rows.map(r=>r.event).sort(),['cancelled','created','updated']);
