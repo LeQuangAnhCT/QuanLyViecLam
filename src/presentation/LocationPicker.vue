@@ -9,6 +9,10 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
+const provinceSearch = ref('')
+const wardSearch = ref('')
+const filteredProvinces = computed(() => provinces.filter(item => item.name.toLocaleLowerCase('vi-VN').includes(provinceSearch.value.trim().toLocaleLowerCase('vi-VN'))))
+const filteredWards = computed(() => wards.value.filter(item => item.name.toLocaleLowerCase('vi-VN').includes(wardSearch.value.trim().toLocaleLowerCase('vi-VN'))))
 const provinceCode = ref('')
 const wardCode = ref('')
 const detail = ref('')
@@ -47,6 +51,7 @@ function publish() {
 
 function changeProvince() {
   wardCode.value = ''
+  wardSearch.value = ''
   legacyValue.value = ''
   publish()
 }
@@ -64,15 +69,17 @@ function clear() {
   <div class="location-picker">
     <div class="form-grid">
       <label>Tỉnh / Thành phố
+        <input v-model="provinceSearch" type="search" placeholder="Tìm tỉnh / thành phố" aria-label="Tìm tỉnh thành">
         <select v-model="provinceCode" :required="required && !legacyValue" @change="changeProvince">
           <option value="">Chọn tỉnh / thành phố</option>
-          <option v-for="item in provinces" :key="item.code" :value="item.code">{{ item.name }}</option>
+          <option v-for="item in filteredProvinces" :key="item.code" :value="item.code">{{ item.name }}</option>
         </select>
       </label>
       <label>Phường / Xã / Đặc khu
+        <input v-model="wardSearch" type="search" placeholder="Tìm phường / xã" :disabled="!provinceCode" aria-label="Tìm phường xã">
         <select v-model="wardCode" :disabled="!provinceCode" :required="required && !legacyValue" @change="publish">
           <option value="">Chọn phường / xã</option>
-          <option v-for="item in wards" :key="item.code" :value="item.code">{{ item.name }}</option>
+          <option v-for="item in filteredWards" :key="item.code" :value="item.code">{{ item.name }}</option>
         </select>
       </label>
     </div>
