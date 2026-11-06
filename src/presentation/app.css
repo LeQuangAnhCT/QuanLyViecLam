@@ -190,6 +190,8 @@ button{transition:background .15s ease,border-color .15s ease}
 .shift-picker .form-actions{margin-top:18px}
 .nav-unread{display:inline-grid;place-items:center;min-width:20px;height:20px;background:#e8e8e8;color:#141414;border-radius:999px;font-size:10px;font-weight:800;margin-left:6px;padding:0 6px}
 .sidebar nav button.selected .nav-unread,.mobile-nav button.selected .nav-unread{background:#2a2a2a;color:#fff}
+.profile-avatar{display:block;flex:none;width:36px;height:36px;object-fit:cover;border-radius:50%;background:#e4e6eb}
+.profile-avatar-large{width:96px;height:96px;margin-bottom:16px}
 .notifications-section .section-title{align-items:center}
 .notification-row.unread{background:#f7f7f7;padding-inline:12px;border-radius:9px}
 .notification-row.unread .notification-head b{color:#181818}
@@ -249,3 +251,15 @@ button{transition:background .15s ease,border-color .15s ease}
  .payroll-type{font-size:16px!important}
  .payroll-money{font-size:14px!important}
 }
+
+/* Staff management: compact responsive search and clear paused state. */
+.people-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,260px);gap:14px;margin:20px 0}
+.people-toolbar label{min-width:0}
+.member-paused{opacity:.72}
+.member-paused .badge{border:1px dashed #8e8e8e;background:#f5f5f5}
+.member-row .row-actions{flex-wrap:wrap;justify-content:flex-end}
+input[type="search"]{appearance:none}
+@media(max-width:700px){.people-toolbar{grid-template-columns:1fr}.member-row{align-items:flex-start;flex-direction:column}.member-row .row-actions{justify-content:flex-start}}
+
+/* Keep success/notice styling strictly monochrome. */
+.notice{background:#f0f0ef;color:#272727;border-color:#cececa}
