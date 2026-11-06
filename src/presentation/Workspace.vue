@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useWorkspace } from '../application/useWorkspace'
-import { localDate, hours, roleLabel, shiftRows, shiftUpdate } from '../domain/calendar'
+import { localDate, hours, roleLabel, shiftRows, shiftEditPlan, sameWorkSlot } from '../domain/calendar'
 import LocationPicker from './LocationPicker.vue'
 
 const props = defineProps({ user: { type: Object, required: true } })
@@ -40,12 +40,14 @@ async function saveAccountProfile() {
   finally { busy.value=false }
 }
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', cast_vnd: 300000, user_ids: [] })
-const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
+const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', monthly_allowance_vnd:0 })
 const reportMonth = ref(new Date(new Date().getFullYear(),new Date().getMonth(),1))
 const reportMonthText = computed(() => localDate(reportMonth.value))
 const monthlyReportTotals = computed(() => ({
   scheduled: payroll.value.reduce((a,row)=>a+Number(row.scheduled_shifts||0),0),
   completed: payroll.value.reduce((a,row)=>a+Number(row.completed_shifts||0),0),
+  hours: payroll.value.reduce((a,row)=>a+Number(row.worked_hours||0),0).toFixed(2),
+  cast: payroll.value.reduce((a,row)=>a+Number(row.cast_total_vnd||0),0),
   total: payroll.value.reduce((a,row)=>a+Number(row.estimated_total_vnd||0),0)
 }))
 function changeReportMonth(delta) { reportMonth.value = new Date(reportMonth.value.getFullYear(),reportMonth.value.getMonth()+delta,1) }
@@ -54,7 +56,13 @@ const typeShort = type => type==='employee' ? 'Chính thức' : type==='freelanc
 const ownCompensation = computed(() => compensation.value.find(p=>p.user_id===props.user.id))
 const ownScheduled = computed(() => shifts.value.filter(s => localDate(new Date(s.starts_at)).slice(0,7)===reportMonthText.value.slice(0,7)))
 const ownCompleted = computed(() => ownScheduled.value.filter(s => clockRecords.value.some(a=>a.shift_id===s.id && a.checked_out_at)))
-const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) + Number(ownCompensation.value?.show_rate_vnd||0)*ownCompleted.value.length)
+const ownActualHours = computed(() => ownCompleted.value.reduce((total,s) => {
+  const record=clockRecords.value.find(a=>a.shift_id===s.id && a.checked_out_at)
+  return total+(record? Math.max(0,(new Date(record.checked_out_at)-new Date(record.checked_in_at))/3600000):0)
+},0).toFixed(2))
+const ownCastTotal = computed(() => ownCompleted.value.reduce((total,s)=>total+Number(s.cast_vnd||0),0))
+const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) +
+  Number(ownCompensation.value?.monthly_allowance_vnd||0) + ownCastTotal.value)
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
 const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
 const selectableCompanies = computed(() => companies.value)
@@ -62,6 +70,10 @@ const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
 const clockRecordFor = shiftId => clockRecords.value.find(r => r.shift_id === shiftId)
 const editingShift = computed(() => shifts.value.find(s => s.id === editingShiftId.value))
+const editingCrew = computed(() => editingShift.value
+  ? shifts.value.filter(s=>sameWorkSlot(s,editingShift.value)) : [])
+const crewHasClocked = computed(() => editingCrew.value.some(s=>clockRecordFor(s.id)))
+const crewMemberClocked = userId => editingCrew.value.some(s=>s.user_id===userId && clockRecordFor(s.id))
 const canClockIn = item => {
   if (clockUnavailable.value || clockRecordFor(item.id)) return false
   const now=Date.now()
@@ -122,14 +134,21 @@ async function toggleMember(person) {
 const money = value => `${new Intl.NumberFormat('vi-VN').format(Number(value))} ₫`
 function openPay(member) {
   const pay = payFor(member.user_id)
-  Object.assign(payForm,{user_id:member.user_id,name:member.full_name,employment_type:pay?.employment_type || 'employee',monthly_base_vnd:pay?.monthly_base_vnd ?? '',show_rate_vnd:pay?.show_rate_vnd ?? ''})
+  Object.assign(payForm,{user_id:member.user_id,name:member.full_name,employment_type:pay?.employment_type || 'employee',monthly_base_vnd:pay?.monthly_base_vnd ?? '',monthly_allowance_vnd:pay?.monthly_allowance_vnd ?? 0})
   modal.value='pay'
 }
 function savePay() {
   const base = payForm.employment_type === 'freelancer' ? null : Number(payForm.monthly_base_vnd)
-  const rate = Number(payForm.show_rate_vnd)
-  if (payForm.show_rate_vnd === '' || (base !== null && payForm.monthly_base_vnd === '') || !Number.isSafeInteger(rate) || rate < 0 || (base !== null && (!Number.isSafeInteger(base) || base < 0))) { error.value='Hãy nhập số tiền hợp lệ, không âm.'; return }
-  perform(()=>repo.upsert('member_compensation',{company_id:companyId.value,user_id:payForm.user_id,employment_type:payForm.employment_type,monthly_base_vnd:base,show_rate_vnd:rate,updated_at:new Date().toISOString()}),'Đã lưu thông tin lương.',true)
+  const allowance = Number(payForm.monthly_allowance_vnd)
+  if (payForm.monthly_allowance_vnd === '' || (base !== null && payForm.monthly_base_vnd === '') ||
+      !Number.isSafeInteger(allowance) || allowance < 0 || allowance > 99999999999999 ||
+      (base !== null && (!Number.isSafeInteger(base) || base < 0 || base > 99999999999999))) {
+    error.value='Hãy nhập số tiền hợp lệ, không âm.'; return
+  }
+  perform(()=>repo.upsert('member_compensation',{
+    company_id:companyId.value,user_id:payForm.user_id,employment_type:payForm.employment_type,
+    monthly_base_vnd:base,monthly_allowance_vnd:allowance,updated_at:new Date().toISOString()
+  }),'Đã lưu thông tin lương.',true)
 }
 function shiftsForDate(dateText) {
   const start = new Date(dateText + 'T00:00:00')
@@ -155,13 +174,10 @@ function clickCalendarCell(day) {
   else { error.value = ''; modal.value = 'shift-picker' }
 }
 function chooseShiftStaff(userId, checked) {
-  if (editingShiftId.value) {
-    shift.user_ids = checked ? [userId] : []
-  } else {
-    shift.user_ids = checked
-      ? [...new Set([...shift.user_ids, userId])]
-      : shift.user_ids.filter(id => id !== userId)
-  }
+  if (editingShiftId.value && crewMemberClocked(userId) && !checked) return
+  shift.user_ids = checked
+    ? [...new Set([...shift.user_ids, userId])]
+    : shift.user_ids.filter(id => id !== userId)
 }
 function editShift(item) {
   if (!canSchedule.value) return
@@ -172,7 +188,8 @@ function editShift(item) {
   Object.assign(shift, {
     title: item.title, location: item.location || '',
     date: localDate(start), end_date: localDate(start),
-    start: timeOf(start), end: timeOf(end), cast_vnd: Number(item.cast_vnd || 0), user_ids: [item.user_id]
+    start: timeOf(start), end: timeOf(end), cast_vnd: Number(item.cast_vnd || 0),
+    user_ids: shifts.value.filter(s=>sameWorkSlot(s,item)).map(s=>s.user_id)
   })
   error.value = ''
   modal.value = 'shift'
@@ -205,44 +222,45 @@ async function confirmDisableAccount() {
 }
 async function saveShift() {
   if (!canSchedule.value) { error.value = 'Chỉ Manager mới được phân ca.'; return }
-  if (editingShiftId.value && clockRecordFor(editingShiftId.value) && Number(shift.cast_vnd) !== Number(editingShift.value?.cast_vnd ?? 0)) {
-    error.value = 'Ca đã chấm công, không thể thay đổi cast / thù lao.'
-    return
-  }
-  let rows
+  let rows = [], plan = null
   try {
     const eligible = new Set(staffMembers.value.map(m => m.user_id))
     if (!shift.user_ids.every(id => eligible.has(id))) throw new Error('Chỉ được phân ca cho nhân viên thuộc công ty.')
-    rows = editingShiftId.value ? shiftUpdate(shift, companyId.value, editingShiftId.value, shifts.value) : shiftRows(shift, companyId.value, shifts.value)
-  } catch (e) { error.value = e?.message || 'Ca làm việc chưa hợp lệ.'; return }
-  busy.value = true
-  error.value = ''
-  message.value = ''
+    if (editingShiftId.value) {
+      plan = shiftEditPlan(shift,companyId.value,editingShiftId.value,shifts.value,clockRecords.value.map(c=>c.shift_id))
+    } else rows = shiftRows(shift,companyId.value,shifts.value)
+  } catch(e) { error.value=e?.message || 'Ca làm việc chưa hợp lệ.'; return }
+  busy.value=true; error.value=''; message.value=''
   try {
-    if (editingShiftId.value) await repo.updateShift(editingShiftId.value, companyId.value, rows)
-    else await repo.insert('company_shifts', rows)
+    if (editingShiftId.value) {
+      const change=plan.updates[0]?.changes || plan.addedRows[0]
+      await repo.updateWorkAssignments(editingShiftId.value,change,shift.user_ids)
+    } else {
+      await repo.insert('company_shifts',rows)
+    }
   } catch (e) {
     const errors = {
-      '23P01': 'Nhân viên bị trùng ca, có thể với ca ở công ty khác. Hãy chọn giờ khác.',
-      '23503': 'Nhân viên không thuộc công ty này. Hãy tải lại danh sách thành viên.',
-      '23514': 'Thời lượng ca không hợp lệ (tối đa 24 giờ).',
-      '42501': 'Tài khoản chưa được cấp quyền phân ca của công ty này.',
-      'P4511': 'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
-      'P4512': 'Ca đã chấm công, không được thay đổi cast / thù lao.',
-      'PGRST205': 'Bảng lịch chưa tồn tại trong Supabase. Hãy kiểm tra triển khai cơ sở dữ liệu.'
+      '23P01':'Nhân viên bị trùng ca, có thể ở công ty khác. Hãy chọn giờ khác.',
+      '23503':'Nhân viên không thuộc công ty này.',
+      '23514':'Thời lượng ca không hợp lệ.',
+      '42501':'Tài khoản chưa được cấp quyền phân ca.',
+      'P4510':'Ca đã chấm công, không được hủy.',
+      'P4511':'Ca đã chấm công, không được đổi nhân viên hoặc giờ làm.',
+      'P4512':'Ca đã chấm công, không được thay đổi Cast hoặc bỏ nhân viên đã chấm công.',
+      'P4561':'Chỉ Manager mới được cập nhật phân công.',
+      'PGRST202':'Cần chạy supabase/multi_staff_assignment.sql trong Supabase.',
+      'PGRST205':'Bảng lịch chưa tồn tại trong Supabase.'
     }
-    error.value = errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
-    busy.value = false
+    error.value=errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
+    busy.value=false
     return
   }
-  modal.value = ''
-  message.value = editingShiftId.value ? 'Đã cập nhật ca làm việc.' : `Đã lưu ${rows.length} ca làm việc thành công.`
-  editingShiftId.value = ''
-  try {
-    await w.refreshCompany()
-  } catch (e) {
-    error.value = 'Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
-  } finally { busy.value = false }
+  modal.value=''
+  message.value=editingShiftId.value ? `Đã cập nhật phân công cho ${shift.user_ids.length} nhân viên.` : `Đã lưu ${rows.length} ca làm việc thành công.`
+  editingShiftId.value=''
+  try { await w.refreshCompany() } catch(e) {
+    error.value='Ca đã lưu thành công, nhưng chưa tải lại được lịch. Vui lòng tải lại trang.'
+  } finally { busy.value=false }
 }
 async function removeShift(item) {
   if (!canSchedule.value || busy.value) return
