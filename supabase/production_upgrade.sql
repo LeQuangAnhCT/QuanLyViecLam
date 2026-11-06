@@ -463,6 +463,8 @@ create trigger validate_staff_shift
 -- Read-only monthly preview. This is NOT a payroll payment or payslip.
 -- Values use CURRENT compensation rates and completed check-outs; historical
 -- rates, statutory deductions, leave rules and proration are not modeled.
+-- Allow rerunning after new report signature was installed in previous deployment.
+drop function if exists public.company_staff_summary(uuid,date);
 create or replace function public.company_staff_summary(p_company uuid,p_month date)
 returns table (
   user_id uuid, full_name text, email text,
