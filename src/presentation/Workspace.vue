@@ -469,7 +469,7 @@ onUnmounted(() => {
 
         <section v-if="tab==='payroll' && manager" class="surface section payroll-section">
           <div class="section-title">
-            <div><h2>Bảng công & lương ước tính</h2><p>Phân biệt nhân viên chính thức và thời vụ. Chỉ cộng tiền theo show đã chấm công ra; lương tháng là số thỏa thuận, chưa tính nghỉ phép hay khấu trừ.</p></div>
+            <div><h2>Bảng công & lương ước tính</h2><p>Giờ thực tế lấy từ chấm công vào/ra. Cast chỉ cộng khi ca hoàn tất; phụ cấp tháng và lương cơ bản là mức thỏa thuận hiện tại.</p></div>
             <div class="button-group payroll-month-controls">
               <button type="button" aria-label="Tháng trước" @click="changeReportMonth(-1)">‹</button>
               <b>{{ reportMonth.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}) }}</b>
@@ -482,12 +482,12 @@ onUnmounted(() => {
             <div class="overview-grid payroll-kpis">
               <div class="overview-tile"><span>Ca đã phân</span><strong>{{ monthlyReportTotals.scheduled }}</strong><small>Trong tháng</small></div>
               <div class="overview-tile"><span>Ca hoàn thành</span><strong>{{ monthlyReportTotals.completed }}</strong><small>Đã chấm công ra</small></div>
-              <div class="overview-tile"><span>Chi phí ước tính</span><strong class="payroll-money">{{ money(monthlyReportTotals.total) }}</strong><small>Theo mức hiện tại</small></div>
+              <div class="overview-tile"><span>Giờ thực tế</span><strong>{{ monthlyReportTotals.hours }}</strong><small>Giờ chấm công vào/ra</small></div><div class="overview-tile"><span>Cast hoàn tất</span><strong class="payroll-money">{{ money(monthlyReportTotals.cast) }}</strong><small>Ca đã chấm công ra</small></div><div class="overview-tile"><span>Chi phí ước tính</span><strong class="payroll-money">{{ money(monthlyReportTotals.total) }}</strong><small>Lương + phụ cấp tháng + Cast</small></div>
             </div>
             <div v-if="!payroll.length" class="empty">Chưa có nhân viên Staff trong công ty.</div>
             <div v-else class="payroll-table-wrap">
               <table class="payroll-table">
-                <thead><tr><th>Nhân viên</th><th>Loại</th><th>Ca phân</th><th>Ca hoàn tất</th><th>Giờ thực tế</th><th>Lương tháng</th><th>Tiền/show</th><th>Ước tính</th></tr></thead>
+                <thead><tr><th>Nhân viên</th><th>Loại</th><th>Ca phân</th><th>Ca hoàn tất</th><th>Giờ thực tế</th><th>Lương tháng</th><th>Phụ cấp/tháng</th><th>Cast hoàn tất</th><th>Ước tính</th></tr></thead>
                 <tbody><tr v-for="person in payroll" :key="person.user_id">
                   <td><b>{{ person.full_name }}</b><small>{{ person.email }}</small></td>
                   <td>{{ typeShort(person.employment_type) }}</td>
@@ -495,7 +495,7 @@ onUnmounted(() => {
                   <td>{{ person.completed_shifts }}</td>
                   <td>{{ person.worked_hours }} giờ</td>
                   <td>{{ person.employment_type==='employee' ? money(person.monthly_base_vnd) : '—' }}</td>
-                  <td>{{ money(person.show_rate_vnd) }}</td>
+                  <td>{{ money(person.monthly_allowance_vnd) }}</td><td>{{ money(person.cast_total_vnd) }}</td>
                   <td><b>{{ money(person.estimated_total_vnd) }}</b></td>
                 </tr></tbody>
               </table>
@@ -518,12 +518,12 @@ onUnmounted(() => {
           <template v-else>
             <div class="overview-grid payroll-kpis">
               <div class="overview-tile"><span>Loại nhân sự</span><strong class="payroll-type">{{ typeShort(ownCompensation.employment_type) }}</strong><small>{{ typeName(ownCompensation.employment_type) }}</small></div>
-              <div class="overview-tile"><span>Ca đã hoàn tất</span><strong>{{ ownCompleted.length }}/{{ ownScheduled.length }}</strong><small>Đã chấm công ra / đã phân</small></div>
+              <div class="overview-tile"><span>Ca đã hoàn tất</span><strong>{{ ownCompleted.length }}/{{ ownScheduled.length }}</strong><small>Đã chấm công ra / đã phân</small></div><div class="overview-tile"><span>Giờ thực tế</span><strong>{{ ownActualHours }}</strong><small>Giờ chấm công vào/ra</small></div>
               <div class="overview-tile"><span>Thu nhập ước tính</span><strong class="payroll-money">{{ money(ownIncomeEstimate) }}</strong><small>Không phải tiền đã thanh toán</small></div>
             </div>
-            <div class="income-rates"><p v-if="ownCompensation.employment_type==='employee'">Lương cơ bản thỏa thuận: <b>{{ money(ownCompensation.monthly_base_vnd) }}/tháng</b>.</p><p>Mức theo show hoàn tất: <b>{{ money(ownCompensation.show_rate_vnd) }}/show</b>.</p></div>
+            <div class="income-rates"><p v-if="ownCompensation.employment_type==='employee'">Lương cơ bản thỏa thuận: <b>{{ money(ownCompensation.monthly_base_vnd) }}/tháng</b>.</p><p>Phụ cấp hàng tháng: <b>{{ money(ownCompensation.monthly_allowance_vnd) }}/tháng</b>.</p><p>Cast từ ca đã hoàn tất: <b>{{ money(ownCastTotal) }}</b>.</p></div>
           </template>
-          <p class="payroll-disclaimer">Ước tính dùng mức lương hiện tại và chỉ tính ca đã chấm công ra. Chưa trừ tạm ứng, bảo hiểm, thuế hoặc xử lý nghỉ phép.</p>
+          <p class="payroll-disclaimer">Ước tính gồm lương cơ bản, phụ cấp tháng và Cast ca đã chấm công ra. Giờ thực tế không đồng nghĩa tiền theo giờ. Chưa trừ thuế, bảo hiểm, tạm ứng hoặc nghỉ phép.</p>
         </section>
 
         <section v-if="tab==='people'" class="surface section people-section">
@@ -553,7 +553,7 @@ onUnmounted(() => {
             <div v-for="person in group.items" :key="person.user_id" class="row member-row" :class="{'member-paused': !person.is_active}">
               <div class="member-identity">
                 <b>{{ person.full_name }}</b><small>{{ person.email }}</small>
-                <small v-if="manager && payFor(person.user_id)">{{ payFor(person.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(person.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Theo show: {{ money(payFor(person.user_id).show_rate_vnd) }}</small>
+                <small v-if="manager && payFor(person.user_id)">{{ payFor(person.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(person.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Phụ cấp/tháng: {{ money(payFor(person.user_id).monthly_allowance_vnd) }}</small>
                 <small v-if="!person.is_active">Đã tạm ngừng · Lịch cũ và chấm công vẫn được giữ</small>
               </div>
               <div class="row-actions">
@@ -580,7 +580,7 @@ onUnmounted(() => {
       </main>
     </div>
     <div v-if="modal" class="overlay" @click.self="modal=''" @keydown.esc="modal=''"><section class="dialog" :class="{'dialog-small':modal==='disable-account'}" role="dialog" aria-modal="true" :aria-label="modal==='disable-account'?'Vô hiệu hóa tài khoản':modal==='shift'?(editingShiftId?'Cập nhật ca làm việc':'Phân ca làm việc'):modal==='shift-picker'?'Chọn ca để sửa':modal==='pay'?'Thiết lập lương':'Mời nhân viên'"><div class="dialog-heading"><h2>{{ modal==='disable-account'?'Vô hiệu hóa tài khoản':modal==='shift'?(editingShiftId?'Cập nhật ca làm việc':'Phân ca làm việc'):modal==='shift-picker'?'Chọn ca để sửa':modal==='pay'?'Thiết lập lương':'Mời nhân viên' }}</h2><button aria-label="Đóng" @click="modal=''">×</button></div><div v-if="error" class="alert" role="alert">{{ error }}</div><form v-if="modal==='disable-account'" class="form" @submit.prevent="confirmDisableAccount"><p>Nhập lý do vô hiệu hóa tài khoản {{ disableTarget?.full_name || disableTarget?.email }}.</p><label>Lý do<input v-model="disableReason" required minlength="5" maxlength="500" placeholder="Ít nhất 5 ký tự" autofocus></label><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Xác nhận</button></div></form><form v-else-if="modal==='invite'" class="form" @submit.prevent="perform(()=>repo.insert('company_invitations',{company_id:companyId,email:inviteEmail.trim().toLowerCase()}),'Đã tạo lời mời.',true)"><label>Email nhân viên<input v-model="inviteEmail" required type="email"></label><p>Nhân viên đăng nhập bằng email được mời để chấp nhận.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Gửi lời mời</button></div></form>
-      <form v-else-if="modal==='pay'" class="form" @submit.prevent="savePay"><p>Thiết lập cho {{ payForm.name }} tại {{ current?.name }}.</p><label>Loại nhân sự<select v-model="payForm.employment_type"><option value="employee">Nhân viên chính thức</option><option value="freelancer">Nhân viên thời vụ</option></select></label><label v-if="payForm.employment_type==='employee'">Lương cơ bản mỗi tháng (₫)<input v-model="payForm.monthly_base_vnd" type="number" min="0" max="99999999999999" step="1" required></label><label>{{ payForm.employment_type==='employee' ? 'Phụ cấp mỗi show hoàn tất (₫)' : 'Tiền công mỗi show hoàn tất (₫)' }}<input v-model="payForm.show_rate_vnd" type="number" min="0" max="99999999999999" step="1" required></label><p>Nhân viên chính thức: lương cơ bản theo tháng + phụ cấp show nếu có. Nhân viên thời vụ: chỉ nhận tiền theo show hoàn tất. Đây là mức thỏa thuận hiện tại, không phải bảng lương đã thanh toán.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu mức lương</button></div></form>
+      <form v-else-if="modal==='pay'" class="form" @submit.prevent="savePay"><p>Thiết lập cho {{ payForm.name }} tại {{ current?.name }}.</p><label>Loại nhân sự<select v-model="payForm.employment_type"><option value="employee">Nhân viên chính thức</option><option value="freelancer">Nhân viên thời vụ</option></select></label><label v-if="payForm.employment_type==='employee'">Lương cơ bản mỗi tháng (₫)<input v-model="payForm.monthly_base_vnd" type="number" min="0" max="99999999999999" step="1" required></label><label>Phụ cấp hàng tháng (₫)<input v-model.number="payForm.monthly_allowance_vnd" type="number" min="0" max="99999999999999" step="1" required></label><p>Nhân viên chính thức: lương cơ bản + phụ cấp tháng + Cast của các ca đã hoàn thành. Nhân viên thời vụ: phụ cấp tháng (nếu có) + Cast của các ca đã hoàn thành.</p><div class="form-actions"><button type="button" @click="modal=''">Hủy</button><button class="primary" :disabled="busy">Lưu mức lương</button></div></form>
       <section v-else-if="modal==='shift-picker'" class="shift-picker">
         <p>Ngày {{ selectedDateLabel }} có nhiều ca. Chọn ca cần sửa hoặc tạo ca mới.</p>
         <div v-for="item in selectedShifts" :key="item.id" class="row">
