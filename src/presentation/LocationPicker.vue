@@ -11,8 +11,13 @@ const emit = defineEmits(['update:modelValue'])
 
 const provinceSearch = ref('')
 const wardSearch = ref('')
-const filteredProvinces = computed(() => provinces.filter(item => item.name.toLocaleLowerCase('vi-VN').includes(provinceSearch.value.trim().toLocaleLowerCase('vi-VN'))))
-const filteredWards = computed(() => wards.value.filter(item => item.name.toLocaleLowerCase('vi-VN').includes(wardSearch.value.trim().toLocaleLowerCase('vi-VN'))))
+const normalizeSearch = value => String(value || '').normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim()
+const filteredProvinces = computed(() => provinces
+  .filter(item => normalizeSearch(item.name).includes(normalizeSearch(provinceSearch.value))).slice(0, 12))
+const filteredWards = computed(() => wards.value
+  .filter(item => normalizeSearch(item.name).includes(normalizeSearch(wardSearch.value))).slice(0, 15))
+const searching = ref('')
 const provinceCode = ref('')
 const wardCode = ref('')
 const detail = ref('')
@@ -25,8 +30,11 @@ watch(() => props.modelValue, value => {
   if (value === lastEmitted) return
   provinceCode.value = ''
   wardCode.value = ''
+  provinceSearch.value = ''
+  wardSearch.value = ''
   detail.value = ''
   legacyValue.value = ''
+  searching.value = ''
   if (!value) return
   for (const item of provinces) {
     if (!value.endsWith(`, ${item.name}`)) continue
@@ -34,6 +42,8 @@ watch(() => props.modelValue, value => {
     if (!ward) continue
     provinceCode.value = item.code
     wardCode.value = ward.code
+    provinceSearch.value = item.name
+    wardSearch.value = ward.name
     detail.value = value.slice(0, value.length - `${ward.name}, ${item.name}`.length).replace(/,\s*$/, '')
     return
   }
@@ -49,18 +59,50 @@ function publish() {
   emit('update:modelValue', value)
 }
 
-function changeProvince() {
+function chooseProvince(item) {
+  provinceCode.value = item.code
+  provinceSearch.value = item.name
   wardCode.value = ''
   wardSearch.value = ''
   legacyValue.value = ''
+  searching.value = ''
   publish()
 }
-
+function chooseWard(item) {
+  wardCode.value = item.code
+  wardSearch.value = item.name
+  legacyValue.value = ''
+  searching.value = ''
+  publish()
+}
+function provinceTyped() {
+  provinceCode.value = ''
+  wardCode.value = ''
+  wardSearch.value = ''
+  legacyValue.value = ''
+  searching.value = 'province'
+  publish()
+}
+function wardTyped() {
+  wardCode.value = ''
+  legacyValue.value = ''
+  searching.value = 'ward'
+  publish()
+}
+function selectFirstProvince() {
+  if (searching.value === 'province' && filteredProvinces.value.length) chooseProvince(filteredProvinces.value[0])
+}
+function selectFirstWard() {
+  if (searching.value === 'ward' && filteredWards.value.length) chooseWard(filteredWards.value[0])
+}
 function clear() {
   provinceCode.value = ''
   wardCode.value = ''
+  provinceSearch.value = ''
+  wardSearch.value = ''
   detail.value = ''
   legacyValue.value = ''
+  searching.value = ''
   publish()
 }
 </script>
@@ -68,20 +110,30 @@ function clear() {
 <template>
   <div class="location-picker">
     <div class="form-grid">
-      <label>Tỉnh / Thành phố
-        <input v-model="provinceSearch" type="search" placeholder="Tìm tỉnh / thành phố" aria-label="Tìm tỉnh thành">
-        <select v-model="provinceCode" :required="required && !legacyValue" @change="changeProvince">
-          <option value="">Chọn tỉnh / thành phố</option>
-          <option v-for="item in filteredProvinces" :key="item.code" :value="item.code">{{ item.name }}</option>
-        </select>
-      </label>
-      <label>Phường / Xã / Đặc khu
-        <input v-model="wardSearch" type="search" placeholder="Tìm phường / xã" :disabled="!provinceCode" aria-label="Tìm phường xã">
-        <select v-model="wardCode" :disabled="!provinceCode" :required="required && !legacyValue" @change="publish">
-          <option value="">Chọn phường / xã</option>
-          <option v-for="item in filteredWards" :key="item.code" :value="item.code">{{ item.name }}</option>
-        </select>
-      </label>
+      <div class="location-autocomplete">
+        <label>Tỉnh / Thành phố
+          <input v-model="provinceSearch" type="search" autocomplete="off" placeholder="Tìm tỉnh / thành phố"
+            role="combobox" aria-autocomplete="list" :aria-expanded="searching === 'province'"
+            :required="required && !legacyValue" @focus="searching='province'" @input="provinceTyped"
+            @keydown.enter.prevent="selectFirstProvince" @keydown.esc="searching=''" @blur="searching=''">
+        </label>
+        <div v-if="searching === 'province' && filteredProvinces.length" class="location-suggestions" role="listbox" aria-label="Danh sách tỉnh thành">
+          <button v-for="item in filteredProvinces" :key="item.code" type="button" role="option"
+            :aria-selected="item.code === provinceCode" @mousedown.prevent @click="chooseProvince(item)">{{ item.name }}</button>
+        </div>
+      </div>
+      <div class="location-autocomplete">
+        <label>Phường / Xã / Đặc khu
+          <input v-model="wardSearch" type="search" autocomplete="off" placeholder="Tìm phường / xã" :disabled="!provinceCode"
+            role="combobox" aria-autocomplete="list" :aria-expanded="searching === 'ward'"
+            :required="required && !legacyValue" @focus="searching='ward'" @input="wardTyped"
+            @keydown.enter.prevent="selectFirstWard" @keydown.esc="searching=''" @blur="searching=''">
+        </label>
+        <div v-if="searching === 'ward' && filteredWards.length" class="location-suggestions" role="listbox" aria-label="Danh sách phường xã">
+          <button v-for="item in filteredWards" :key="item.code" type="button" role="option"
+            :aria-selected="item.code === wardCode" @mousedown.prevent @click="chooseWard(item)">{{ item.name }}</button>
+        </div>
+      </div>
     </div>
     <label v-if="detailLabel && wardCode">{{ detailLabel }}
       <input v-model="detail" maxlength="120" placeholder="Có thể bổ sung sau" @input="publish">

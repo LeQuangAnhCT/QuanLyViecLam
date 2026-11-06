@@ -271,3 +271,15 @@ input[type="search"]{appearance:none}
 .location-title{display:block;font-size:12px;font-weight:650;color:#444}
 .location-current{font-size:12px;margin:0;color:#666}
 .location-clear{justify-self:start;padding-left:0}
+
+/* Compact searchable province/ward dropdowns: one input per field, not a second select row. */
+.location-autocomplete{position:relative;min-width:0}
+.location-autocomplete input{width:100%}
+.location-suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:#fff;box-shadow:0 10px 24px #00000018;padding:4px}
+.location-suggestions button{display:block;width:100%;height:auto;padding:10px 12px;border:0;border-radius:5px;background:#fff;color:#222;text-align:left;font:inherit;white-space:normal}
+.location-suggestions button:hover,.location-suggestions button:focus-visible{background:#ededed}
+.location-suggestions button[aria-selected="true"]{background:#e3e3e3;font-weight:700}
+.cast-presets{display:flex;flex-wrap:wrap;gap:8px;margin-top:-8px}
+.cast-presets button{flex:0 0 auto;min-width:64px;border:1px solid #ccc;border-radius:8px;padding:10px 14px;background:#fff;color:#222;font-weight:650;font-size:13px;cursor:pointer}
+.cast-presets button:hover,.cast-presets button:focus-visible{border-color:#444;background:#f1f1f1}
+.cast-presets button.selected{background:#171717;border-color:#171717;color:#fff}
