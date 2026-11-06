@@ -283,3 +283,7 @@ input[type="search"]{appearance:none}
 .cast-presets button{flex:0 0 auto;min-width:64px;border:1px solid #ccc;border-radius:8px;padding:10px 14px;background:#fff;color:#222;font-weight:650;font-size:13px;cursor:pointer}
 .cast-presets button:hover,.cast-presets button:focus-visible{border-color:#444;background:#f1f1f1}
 .cast-presets button.selected{background:#171717;border-color:#171717;color:#fff}
+
+/* Hide visual scrollbars across the app, without disabling wheel, touch or keyboard scrolling. */
+html,body,*{scrollbar-width:none!important;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
