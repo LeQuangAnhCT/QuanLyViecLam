@@ -72,14 +72,15 @@ const clockStatus = item => {
   return row ? (row.checked_out_at ? 'Đã chấm công ra' : 'Đã chấm công vào') : 'Chưa chấm công'
 }
 const clockDisplay = stamp => stamp ? new Date(stamp).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) : ''
-const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đổi lịch', cancelled:'Ca đã hủy'})[event] || 'Thông báo'
+const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đổi lịch', cancelled:'Ca đã hủy', attendance_in:'Chấm công vào', attendance_out:'Chấm công ra', join_request:'Yêu cầu gia nhập'})[event] || 'Thông báo'
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
 const tabs = computed(() => {
   if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Quản lý công ty tôi'],['accounts','Tài khoản'],['profile','Hồ sơ của tôi']]
   const result = [['calendar',manager.value ? 'Phân ca' : 'Lịch của tôi']]
-  if (!manager.value) result.push(['attendance','Chấm công'], ['income','Thu nhập'], ['notifications','Thông báo'])
+  if (!manager.value) result.push(['attendance','Chấm công'], ['income','Thu nhập'])
   else result.push(['payroll','Bảng công & lương'])
+  result.push(['notifications','Thông báo'])
   result.push(['people',manager.value ? 'Quản lý nhân sự' : 'Đồng nghiệp'],['community', manager.value ? 'Tuyển nhân sự' : 'Cộng đồng'])
   if (!hasManagedCompany.value) result.push(['registration', activeApplication.value ? 'Đơn đăng ký' : 'Đăng ký công ty'])
   result.push(['profile','Hồ sơ của tôi'])
@@ -385,8 +386,8 @@ onUnmounted(() => {
           </template>
         </template>
 
-        <section v-if="tab==='notifications' && !manager && !isAdmin" class="surface section notifications-section">
-          <div class="section-title"><div><h2>Thông báo lịch làm việc</h2><p>Ca mới, thay đổi lịch hoặc hủy ca đều được lưu để bạn xem lại.</p></div><button type="button" :disabled="busy" @click="w.refreshNotifications()">Làm mới</button></div>
+        <section v-if="tab==='notifications' && !isAdmin" class="surface section notifications-section">
+          <div class="section-title"><div><h2>{{ manager ? 'Thông báo quản lý' : 'Thông báo lịch làm việc' }}</h2><p>{{ manager ? 'Yêu cầu gia nhập, chấm công của nhân viên và những thay đổi liên quan đến công ty.' : 'Ca mới, thay đổi lịch hoặc hủy ca đều được lưu để bạn xem lại.' }}</p></div><button type="button" :disabled="busy" @click="w.refreshNotifications()">Làm mới</button></div>
           <div v-if="notificationsError" class="alert" role="alert">{{ notificationsError }}</div>
           <div v-if="!notificationsUnavailable && !notifications.length" class="empty">Bạn chưa có thông báo nào.</div>
           <div v-for="item in notifications" :key="item.id" class="row notification-row" :class="{unread:!item.read_at}">
