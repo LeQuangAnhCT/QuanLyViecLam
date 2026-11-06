@@ -6,18 +6,20 @@ export function shiftRows(values, companyId, existingShifts = []) {
   const users = [...new Set((values.user_ids || []).filter(Boolean))]
   if (!companyId) throw new Error('Hãy chọn công ty trước khi phân ca.')
   if (!users.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
-  if (!values.date || !values.end_date || !values.start || !values.end) throw new Error('Hãy nhập đầy đủ ngày và giờ làm.')
+  if (!values.date || !values.start || !values.end) throw new Error('Hãy nhập đầy đủ ngày và giờ làm.')
   const start = new Date(`${values.date}T${values.start}`)
-  const end = new Date(`${values.end_date}T${values.end}`)
+  const end = new Date(`${values.date}T${values.end}`)
   const duration = end - start
   if (!Number.isFinite(duration) || duration <= 0) throw new Error('Thời gian kết thúc phải sau thời gian bắt đầu.')
   if (duration > 24 * 3600000) throw new Error('Một ca không được dài hơn 24 giờ. Hãy chia thành nhiều ca.')
   if (!values.title?.trim() || !values.location?.trim()) throw new Error('Hãy nhập công việc và địa điểm.')
+  const cast = Number(values.cast_vnd ?? 0)
+  if (!Number.isInteger(cast) || cast < 0 || cast > 100000000) throw new Error('Cast phải là số tiền hợp lệ.')
   const conflict = existingShifts.find(s => users.includes(s.user_id) && start < new Date(s.ends_at) && end > new Date(s.starts_at))
   if (conflict) throw new Error('Một nhân viên đã có ca làm trùng khoảng thời gian này.')
   return users.map(user_id => ({
     company_id: companyId, user_id, title: values.title.trim(), location: values.location.trim(),
-    starts_at: start.toISOString(), ends_at: end.toISOString()
+    starts_at: start.toISOString(), ends_at: end.toISOString(), cast_vnd: cast
   }))
 }
 

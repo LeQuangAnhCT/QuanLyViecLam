@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 const data = async (request) => { const result = await request; if (result.error) throw result.error; return result.data }
 export const repository = {
   auth: supabase.auth,
-  accountProfile: id => data(supabase.from('profiles').select('id,full_name,birth_date,hometown,avatar_url').eq('id',id).maybeSingle()),
+  accountProfile: id => data(supabase.from('profiles').select('id,full_name,birth_date,hometown,active_location,avatar_url').eq('id',id).maybeSingle()),
   saveAccountProfile: (id, values) => data(supabase.from('profiles').upsert({id,...values},{onConflict:'id'}).select().single()),
   async uploadAvatar(id, file) {
     const path = `${id}/avatar-${Date.now()}.${file.name.split('.').pop()?.toLowerCase() || 'jpg'}`
