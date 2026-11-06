@@ -64,7 +64,7 @@ assert.equal(Number(initialCategory.rows[0].show_rate_vnd),0);
 await db.query("update public.member_compensation set employment_type='employee', monthly_base_vnd=8000000, show_rate_vnd=500000 where company_id=$1 and user_id=$2",[company,staff]);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Manager shift',now(),now()+interval '2 hours')",[company,manager]));
 await expectDenied(()=>db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'freelancer',1,500000)",[company,manager]));
-const firstShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Show',now(),now()+interval '4 hours') returning id",[company,staff]);
+const firstShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at,cast_vnd) values($1,$2,'Show',now(),now()+interval '4 hours',500000) returning id",[company,staff]);
 await db.query("update public.company_shifts set title='Show updated' where id=$1",[firstShift.rows[0].id]);
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Overlap',now()+interval '1 hour',now()+interval '3 hours')",[company,staff]));
 await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Adjacent',now()+interval '4 hours',now()+interval '6 hours')",[company,staff]);
@@ -95,6 +95,8 @@ assert.equal(salaryPreview.rows[0].employment_type,'employee');
 assert.equal(Number(salaryPreview.rows[0].completed_shifts),1);
 assert.equal(Number(salaryPreview.rows[0].scheduled_shifts),2);
 assert.equal(Number(salaryPreview.rows[0].estimated_total_vnd),8500000);
+assert.equal(Number(salaryPreview.rows[0].cast_total_vnd),500000);
+assert.equal(Number(salaryPreview.rows[0].monthly_allowance_vnd),0);
 await db.query("insert into public.company_invitations(company_id,email) values($1,'other@example.com')",[company]);
 await login(outsider,'staff','other@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,0);
@@ -126,7 +128,7 @@ assert.equal((await db.query("select count(*)::int as count from public.shift_no
 // A seasonal staff member earns no monthly base, and only earns show-pay after checkout.
 await login(manager,'staff','manager@example.com');
 await db.query("update public.member_compensation set show_rate_vnd=350000 where company_id=$1 and user_id=$2",[company,outsider]);
-const seasonalShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Seasonal show',now(),now()+interval '1 hour') returning id",[company,outsider]);
+const seasonalShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at,cast_vnd) values($1,$2,'Seasonal task',now(),now()+interval '1 hour',350000) returning id",[company,outsider]);
 const beforeSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
 assert.equal(Number(beforeSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),0);
 await login(outsider,'staff','other@example.com');
@@ -135,6 +137,7 @@ await db.query('select public.clock_out_shift($1)',[seasonalShift.rows[0].id]);
 await login(manager,'staff','manager@example.com');
 const afterSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
 assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),350000);
+assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).cast_total_vnd),350000);
 assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).monthly_base_vnd||0),0);
 // Deactivation retains completed history but cancels future unclocked shifts.
 const upcoming = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Future seasonal',now()+interval '5 days',now()+interval '5 days 3 hours') returning id",[company,outsider]);
