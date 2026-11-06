@@ -1094,7 +1094,7 @@ alter table public.shift_notifications add constraint shift_notifications_event_
   check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request'));
 
 create or replace function public.notify_manager_activity()
-returns trigger language plpgsql security definer set search_path=public as $
+returns trigger language plpgsql security definer set search_path=public as $$
 declare
   manager_id uuid;
   shift_title text;
@@ -1130,7 +1130,7 @@ begin
         format('%s vừa gửi yêu cầu tham gia công ty.',staff_name));
   end if;
   return new;
-end $;
+end $$;
 revoke all on function public.notify_manager_activity() from public;
 drop trigger if exists notify_manager_attendance on public.shift_attendance;
 create trigger notify_manager_attendance
@@ -1145,7 +1145,7 @@ for each row execute function public.notify_manager_activity();
 -- Upgrade existing Shiftly database. Run in Supabase SQL Editor.
 -- A checked-in shift's cast is immutable even through direct API calls.
 create or replace function public.protect_clocked_shift()
-returns trigger language plpgsql security definer set search_path=public as $
+returns trigger language plpgsql security definer set search_path=public as $$
 begin
   if not exists(select 1 from public.shift_attendance where shift_id=OLD.id) then
     if TG_OP='DELETE' then return OLD; end if;
@@ -1162,7 +1162,7 @@ begin
     raise exception 'Ca đã chấm công: không được thay đổi cast / thù lao' using errcode='P4512';
   end if;
   return NEW;
-end $;
+end $$;
 revoke all on function public.protect_clocked_shift() from public;
 
 -- Multi-person shift assignment and cast-based monthly payroll
@@ -1171,7 +1171,7 @@ revoke all on function public.protect_clocked_shift() from public;
 create or replace function public.manager_update_work_assignments(
   p_shift uuid, p_users uuid[], p_title text, p_location text,
   p_starts_at timestamptz, p_ends_at timestamptz, p_cast_vnd bigint
-) returns void language plpgsql security definer set search_path=public as $
+) returns void language plpgsql security definer set search_path=public as $$
 declare
   original public.company_shifts;
   assignment public.company_shifts;
@@ -1243,7 +1243,7 @@ begin
       values (original.company_id,target_id,btrim(p_title),btrim(p_location),p_starts_at,p_ends_at,p_cast_vnd);
     end if;
   end loop;
-end $;
+end $$;
 revoke all on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) from public;
 grant execute on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) to authenticated;
 notify pgrst, 'reload schema';
@@ -1266,7 +1266,7 @@ returns table (
   scheduled_shifts bigint, completed_shifts bigint, worked_hours numeric,
   cast_total_vnd numeric, estimated_total_vnd numeric
 )
-language plpgsql stable security definer set search_path=public as $
+language plpgsql stable security definer set search_path=public as $$
 declare first_day timestamptz; next_month timestamptz;
 begin
   if p_month is null or not public.account_active()
@@ -1304,7 +1304,7 @@ begin
   group by m.user_id,u.email,u.raw_user_meta_data,p.employment_type,
     p.monthly_base_vnd,p.monthly_allowance_vnd
   order by coalesce(u.raw_user_meta_data->>'full_name',u.email::text);
-end $;
+end $$;
 revoke all on function public.company_staff_summary(uuid,date) from public;
 grant execute on function public.company_staff_summary(uuid,date) to authenticated;
 notify pgrst, 'reload schema';
