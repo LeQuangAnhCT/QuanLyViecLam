@@ -136,6 +136,14 @@ await login(manager,'staff','manager@example.com');
 const afterSeasonalCheckout = await db.query('select * from public.company_staff_summary($1,current_date)',[company]);
 assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).estimated_total_vnd),350000);
 assert.equal(Number(afterSeasonalCheckout.rows.find(r=>r.user_id===outsider).monthly_base_vnd||0),0);
+// Deactivation retains completed history but cancels future unclocked shifts.
+const upcoming = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Future seasonal',now()+interval '5 days',now()+interval '5 days 3 hours') returning id",[company,outsider]);
+await db.query('select public.manager_set_staff_active($1,$2,false)',[company,outsider]);
+assert.equal((await db.query('select is_active from public.company_members where company_id=$1 and user_id=$2',[company,outsider])).rows[0].is_active,false);
+assert.equal((await db.query('select id from public.company_shifts where id=$1',[upcoming.rows[0].id])).rows.length,0);
+await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Inactive',now()+interval '5 days',now()+interval '5 days 4 hours')",[company,outsider]));
+await db.query('select public.manager_set_staff_active($1,$2,true)',[company,outsider]);
+assert.equal((await db.query('select is_active from public.company_members where company_id=$1 and user_id=$2',[company,outsider])).rows[0].is_active,true);
 await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[seasonalShift.rows[0].id]));
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);

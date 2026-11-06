@@ -3,11 +3,19 @@ import { supabase } from '../lib/supabase'
 const data = async (request) => { const result = await request; if (result.error) throw result.error; return result.data }
 export const repository = {
   auth: supabase.auth,
+  accountProfile: id => data(supabase.from('profiles').select('id,full_name,birth_date,hometown,avatar_url').eq('id',id).maybeSingle()),
+  saveAccountProfile: (id, values) => data(supabase.from('profiles').upsert({id,...values},{onConflict:'id'}).select().single()),
+  async uploadAvatar(id, file) {
+    const path = `${id}/avatar-${Date.now()}.${file.name.split('.').pop()?.toLowerCase() || 'jpg'}`
+    await data(supabase.storage.from('avatars').upload(path,file,{contentType:file.type,upsert:false}))
+    return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+  },
   restriction: id => data(supabase.from('account_restrictions').select('disabled,reason').eq('user_id', id).maybeSingle()),
   companies: () => data(supabase.from('companies').select('id,name,address,phone,contact_email').order('name')),
   memberships: id => data(supabase.from('company_members').select('company_id,role').eq('user_id', id)),
   invitations: () => data(supabase.from('company_invitations').select('id,company_id,email,status').eq('status', 'pending')),
   roster: id => data(supabase.rpc('company_roster', { p_company: id })),
+  memberStatuses: id => data(supabase.from('company_members').select('user_id,is_active').eq('company_id',id)),
   compensation: id => data(supabase.from('member_compensation').select('*').eq('company_id', id)),
   staffSummary: (companyId, monthDate) => data(supabase.rpc('company_staff_summary',{p_company:companyId,p_month:monthDate})),
   shifts: id => data(supabase.from('company_shifts').select('*').eq('company_id', id).order('starts_at')),

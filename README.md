@@ -2,6 +2,27 @@
 
 Ứng dụng web/PWA Vue 3 + Vite + Supabase, giao diện đen/trắng và tối ưu sử dụng trên điện thoại.
 
+## Cài Supabase mới từ đầu (SQL đầy đủ 1 lần dán)
+
+1. Tạo **project Supabase mới**, mở **SQL Editor**. Dán toàn bộ nội dung `supabase/FULL_SETUP_FROM_SCRATCH.sql` và bấm **Run**. File này bao gồm bảng, RLS, RPC, trigger, chấm công, lương, thông báo và bucket ảnh đại diện. Không dùng file này để nâng cấp database đang có dữ liệu.
+2. Nếu **cố ý xóa toàn bộ dữ liệu Shiftly trên project cũ**, sao lưu trước, chạy `supabase/RESET_SHIFTLY_ONLY.sql` rồi mới chạy `supabase/FULL_SETUP_FROM_SCRATCH.sql`. Reset không xóa `auth.users`, OAuth settings và file ảnh trên Storage; **không thể khôi phục ca, lương, chấm công bằng script**.
+3. Vào **Authentication → Providers → Google** để cấu hình Google OAuth, và **URL Configuration** để thêm URL frontend/redirect. Đăng nhập Google ít nhất một lần để tạo `auth.users`.
+4. Chỉ định **Admin hệ thống** một lần trong SQL Editor bằng email của tài khoản đã đăng nhập, thay email ví dụ bằng email thực tế:
+
+   ```sql
+   update auth.users
+      set raw_app_meta_data = coalesce(raw_app_meta_data,'{}'::jsonb)
+        || '{"role":"admin"}'::jsonb
+    where lower(email) = lower('admin@example.com');
+   ```
+
+   Đăng xuất rồi đăng nhập lại để JWT nhận quyền Admin mới. **Không** chạy lệnh này bằng frontend và không đặt service-role key ở client.
+5. Tạo `.env.local` chứa `VITE_SUPABASE_URL=...` và `VITE_SUPABASE_ANON_KEY=...` (publishable/anon key từ Supabase Dashboard → Project Settings → API). Khởi chạy `npm ci && npm run dev`.
+
+**Cập nhật database đang sử dụng**: `supabase/production_upgrade.sql` nâng cấp không xóa dữ liệu; `supabase/account_profile_upgrade.sql` bổ sung hồ sơ và avatar. Nếu database ban đầu chưa có bảng cốt lõi, dùng full-install mới hoặc chạy các migration nền tảng đúng thứ tự; không chạy upgrade đơn lẻ trên database trống.
+
+**Trạng thái nhân viên**: Manager có thể tạm ngừng/kích hoạt lại Staff, giữ nguyên lịch sử chấm công và lương. Các ca tương lai chưa chấm công sẽ bị hủy khi tạm ngừng; ca đang chấm công phải kết thúc trước. Nhân viên tạm ngừng không được phân ca hoặc chấm công vào ca mới.
+
 ## Vai trò và ranh giới nghiệp vụ
 
 | Vai trò | Được phép | Không được phép |
@@ -65,7 +86,7 @@ Cấu hình `VITE_SUPABASE_URL` và `VITE_SUPABASE_ANON_KEY` trong `.env.local` 
 
 ### Database migration
 
-Với dự án mới, chạy trong Supabase SQL Editor theo thứ tự:
+Với dự án mới, ưu tiên chạy **một lần** `supabase/FULL_SETUP_FROM_SCRATCH.sql`. Các file migration nền tảng bên dưới được giữ lại để tham chiếu hoặc nâng cấp thủ công theo thứ tự:
 
 1. `supabase/multi_company.sql`
 2. `supabase/company_approval.sql`

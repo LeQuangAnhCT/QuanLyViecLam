@@ -4,7 +4,7 @@ import { repository as repo } from '../infrastructure/repository'
 
 export function useWorkspace(user) {
   const isAdmin = user.app_metadata?.role === 'admin'
-  const companies = ref([]), directory = ref([]), invitations = ref([]), companyId = ref(''), members = ref([]), shifts = ref([]), compensation = ref([]), compensationUnavailable = ref(false)
+  const companies = ref([]), directory = ref([]), invitations = ref([]), companyId = ref(''), members = ref([]), memberStatuses = ref([]), shifts = ref([]), compensation = ref([]), compensationUnavailable = ref(false)
   const applications = ref([]), freelancers = ref([]), profile = ref(null), accounts = ref([]), adminCompanies = ref([]), requests = ref([]), restriction = ref(null)
   const notifications = ref([]), notificationsUnavailable = ref(false), notificationsError = ref('')
   const clockRecords = ref([]), clockUnavailable = ref(false), clockError = ref('')
@@ -47,7 +47,7 @@ export function useWorkspace(user) {
     }
   }
   let companyRequest = 0
-  watch(companyId, () => { companyRequest++; members.value = []; shifts.value = []; clockRecords.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
+  watch(companyId, () => { companyRequest++; members.value = []; memberStatuses.value = []; shifts.value = []; clockRecords.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false }, { flush: 'sync' })
   async function refresh() {
     restriction.value = await repo.restriction(user.id)
     if (restriction.value?.disabled) return
@@ -73,11 +73,11 @@ export function useWorkspace(user) {
   async function refreshCompany() {
     const id = companyId.value
     const request = ++companyRequest
-    members.value = []; shifts.value = []; clockRecords.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false
+    members.value = []; memberStatuses.value = []; shifts.value = []; clockRecords.value = []; requests.value = []; compensation.value = []; freelancers.value = []; compensationUnavailable.value = false
     if (!id) return
-    const [roster, schedule, pending, pay, availableFreelancers, actualClock] = await Promise.all([repo.roster(id), repo.shifts(id), manager.value ? repo.requests(id) : Promise.resolve([]), manager.value ? repo.compensation(id).then(value => ({value})).catch(error => ({error})) : Promise.resolve({value: []}), manager.value ? repo.freelancers() : Promise.resolve([]), repo.attendance(id).then(value=>({value})).catch(error=>({error}))])
+    const [roster, status, schedule, pending, pay, availableFreelancers, actualClock] = await Promise.all([repo.roster(id), repo.memberStatuses(id), repo.shifts(id), manager.value ? repo.requests(id) : Promise.resolve([]), repo.compensation(id).then(value => ({value})).catch(error => ({error})), manager.value ? repo.freelancers() : Promise.resolve([]), repo.attendance(id).then(value=>({value})).catch(error=>({error}))])
     if (request !== companyRequest || id !== companyId.value) return
-    members.value = roster || []; shifts.value = schedule || []
+    memberStatuses.value = status || []; members.value = (roster || []).map(m => ({...m, is_active: (status || []).find(row => row.user_id === m.user_id)?.is_active !== false})); shifts.value = schedule || []
     requests.value = pending || []
     clockRecords.value = actualClock.value || []
     clockUnavailable.value = !!actualClock.error && ['42P01','PGRST205'].includes(actualClock.error.code)
@@ -95,5 +95,5 @@ export function useWorkspace(user) {
     catch (e) { error.value = e?.code === '23P01' ? 'Nhân viên đã có ca trùng giờ (có thể ở công ty khác). Hãy đổi thời gian.' : (e?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'); return false }
     finally { busy.value = false; loading.value = false }
   }
-  return { isAdmin, companies, directory, invitations, companyId, members, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, refreshNotifications, clockRecords, clockUnavailable, clockError, payroll, payrollUnavailable, payrollError, refreshPayroll, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
+  return { isAdmin, companies, directory, invitations, companyId, members, memberStatuses, shifts, compensation, compensationUnavailable, applications, freelancers, profile, accounts, adminCompanies, requests, restriction, notifications, notificationsUnavailable, notificationsError, refreshNotifications, clockRecords, clockUnavailable, clockError, payroll, payrollUnavailable, payrollError, refreshPayroll, busy, loading, error, message, current, manager, canSchedule, refresh, refreshCompany, perform, repo }
 }

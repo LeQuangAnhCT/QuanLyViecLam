@@ -9,6 +9,35 @@ const { isAdmin, companies, directory, invitations, companyId, members, shifts, 
 const tab = ref(isAdmin ? 'approval' : 'calendar'), month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), selectedDate = ref(localDate(new Date())), modal = ref('')
 const form = reactive({ company_name: '', address: '', phone: '', email: '' }), freelancer = reactive({ display_name: props.user.user_metadata?.full_name || '', specialty: '', visible: false })
 const inviteEmail = ref(''), reasons = reactive({}), editingShiftId = ref('')
+const peopleSearch = ref(''), peopleFilter = ref('all')
+const accountProfile = reactive({full_name:props.user.user_metadata?.full_name || '',birth_date:'',hometown:'',avatar_url:''})
+const avatarFile = ref(null)
+const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#e4e6eb"/><circle cx="50" cy="38" r="19" fill="#b0b3b8"/><path d="M14 100c2-24 16-37 36-37s34 13 36 37" fill="#b0b3b8"/></svg>')
+const avatarPreview = ref('')
+function chooseAvatar(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 2*1024*1024) { avatarFile.value=null; error.value='Ảnh phải là JPG, PNG hoặc WebP và không quá 2 MB.'; event.target.value=''; return }
+  avatarFile.value=file
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+  avatarPreview.value=URL.createObjectURL(file)
+}
+async function saveAccountProfile() {
+  const name=accountProfile.full_name.trim()
+  if (!name) { error.value='Vui lòng nhập họ tên.'; return }
+  if (accountProfile.birth_date && new Date(accountProfile.birth_date)>new Date()) { error.value='Ngày sinh không hợp lệ.'; return }
+  busy.value=true; error.value=''; message.value=''
+  try {
+    const avatar_url=avatarFile.value ? await repo.uploadAvatar(props.user.id,avatarFile.value) : accountProfile.avatar_url
+    await repo.saveAccountProfile(props.user.id,{full_name:name,birth_date:accountProfile.birth_date || null,hometown:accountProfile.hometown.trim() || null,avatar_url:avatar_url || null})
+    await repo.auth.updateUser({data:{full_name:name}})
+    Object.assign(accountProfile,{full_name:name,avatar_url})
+    avatarFile.value=null
+    if (avatarPreview.value) { URL.revokeObjectURL(avatarPreview.value); avatarPreview.value='' }
+    message.value='Đã cập nhật hồ sơ.'
+  } catch(e) { error.value=e?.message || 'Không thể lưu hồ sơ.' }
+  finally { busy.value=false }
+}
 const shift = reactive({ title: '', location: '', date: localDate(new Date()), end_date: localDate(new Date()), start: '08:00', end: '12:00', user_ids: [] })
 const payForm = reactive({ user_id:'', name:'', employment_type:'employee', monthly_base_vnd:'', show_rate_vnd:'' })
 const reportMonth = ref(new Date(new Date().getFullYear(),new Date().getMonth(),1))
@@ -27,8 +56,8 @@ const ownCompleted = computed(() => ownScheduled.value.filter(s => clockRecords.
 const ownIncomeEstimate = computed(() => Number(ownCompensation.value?.monthly_base_vnd||0) + Number(ownCompensation.value?.show_rate_vnd||0)*ownCompleted.value.length)
 const role = computed(() => isAdmin ? 'admin' : manager.value ? 'manager' : 'staff')
 const ownedCompanies = computed(() => companies.value.filter(c => c.role === 'manager'))
-const selectableCompanies = computed(() => ownedCompanies.value.length ? ownedCompanies.value : companies.value)
-const staffMembers = computed(() => members.value.filter(m => m.role === 'staff'))
+const selectableCompanies = computed(() => companies.value)
+const staffMembers = computed(() => members.value.filter(m => m.role === 'staff' && m.is_active))
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
 const clockRecordFor = shiftId => clockRecords.value.find(r => r.shift_id === shiftId)
 const editingShift = computed(() => shifts.value.find(s => s.id === editingShiftId.value))
@@ -46,26 +75,48 @@ const notificationEventLabel = event => ({created:'Ca mới', updated:'Thay đ�
 const hasManagedCompany = computed(() => companies.value.some(c => c.role === 'manager'))
 const activeApplication = computed(() => applications.value.some(a => a.status === 'pending' || a.status === 'approved'))
 const tabs = computed(() => {
-  if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Công ty'],['accounts','Tài khoản']]
+  if (isAdmin) return [['approval','Đơn chờ duyệt'],['companies','Công ty'],['accounts','Tài khoản'],['profile','Hồ sơ của tôi']]
   const result = [['calendar',manager.value ? 'Phân ca' : 'Lịch của tôi']]
   if (!manager.value) result.push(['attendance','Chấm công'], ['income','Thu nhập'], ['notifications','Thông báo'])
   else result.push(['payroll','Bảng công & lương'])
   result.push(['people',manager.value ? 'Quản lý nhân sự' : 'Đồng nghiệp'],['community', manager.value ? 'Tuyển nhân sự' : 'Cộng đồng'])
   if (!hasManagedCompany.value) result.push(['registration', activeApplication.value ? 'Đơn đăng ký' : 'Đăng ký công ty'])
+  result.push(['profile','Hồ sơ của tôi'])
   return result
 })
 const days = computed(() => { const year = month.value.getFullYear(), m = month.value.getMonth(), offset = (new Date(year,m,1).getDay()+6)%7, count = new Date(year,m+1,0).getDate(); return [...Array(offset).fill(null), ...Array.from({length:count},(_,i)=>i+1)] })
 const nameOf = id => members.value.find(m => m.user_id === id)?.full_name || 'Nhân viên'
 const payFor = id => compensation.value.find(p => p.user_id === id)
+const filteredMembers = computed(() => members.value.filter(person => {
+  const query = peopleSearch.value.trim().toLocaleLowerCase('vi-VN')
+  if (query && !`${person.full_name} ${person.email}`.toLocaleLowerCase('vi-VN').includes(query)) return false
+  if (peopleFilter.value === 'active') return person.is_active
+  if (peopleFilter.value === 'inactive') return !person.is_active
+  if (peopleFilter.value === 'employee') return person.is_active && payFor(person.user_id)?.employment_type === 'employee'
+  if (peopleFilter.value === 'freelancer') return person.is_active && payFor(person.user_id)?.employment_type === 'freelancer'
+  return true
+}))
 const memberGroups = computed(() => {
-  if (!manager.value) return [{ label: 'Thành viên công ty', items: members.value }]
+  const list = filteredMembers.value
+  if (!manager.value) return [{ label: 'Thành viên công ty', items: list }]
   return [
-    { label:'Quản lý', items:members.value.filter(m=>m.role==='manager') },
-    { label:'Nhân viên chính thức', items:members.value.filter(m=>m.role!=='manager' && payFor(m.user_id)?.employment_type==='employee') },
-    { label:'Nhân viên thời vụ', items:members.value.filter(m=>m.role!=='manager' && payFor(m.user_id)?.employment_type==='freelancer') },
-    { label:'Chưa thiết lập loại nhân sự', items:members.value.filter(m=>m.role!=='manager' && !payFor(m.user_id)) }
+    { label:'Quản lý', items:list.filter(m=>m.role==='manager') },
+    { label:'Nhân viên chính thức', items:list.filter(m=>m.role!=='manager' && m.is_active && payFor(m.user_id)?.employment_type==='employee') },
+    { label:'Nhân viên thời vụ', items:list.filter(m=>m.role!=='manager' && m.is_active && payFor(m.user_id)?.employment_type==='freelancer') },
+    { label:'Chưa thiết lập loại nhân sự', items:list.filter(m=>m.role!=='manager' && m.is_active && !payFor(m.user_id)) },
+    { label:'Đã tạm ngừng làm việc', items:list.filter(m=>m.role!=='manager' && !m.is_active) }
   ].filter(group=>group.items.length)
 })
+async function toggleMember(person) {
+  const active = !person.is_active
+  const prompt = active
+    ? `Kích hoạt lại ${person.full_name}?`
+    : `Tạm ngừng hợp tác với ${person.full_name}? Các ca trong tương lai chưa chấm công sẽ được hủy và nhân viên nhận thông báo.`
+  if (!window.confirm(prompt)) return
+  await perform(() => repo.rpc('manager_set_staff_active', {
+    p_company: companyId.value, p_user: person.user_id, p_active: active
+  }), active ? 'Đã kích hoạt lại nhân viên.' : 'Đã tạm ngừng nhân viên; các ca tương lai chưa chấm công đã được hủy.')
+}
 const money = value => `${new Intl.NumberFormat('vi-VN').format(Number(value))} ₫`
 function openPay(member) {
   const pay = payFor(member.user_id)
@@ -224,6 +275,7 @@ watch(tab, next => {
 watch(reportMonth, () => { if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value) })
 watch(companyId, () => { if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value) })
 onMounted(() => {
+  repo.accountProfile(props.user.id).then(p=>{ if(p) Object.assign(accountProfile,{full_name:p.full_name || accountProfile.full_name,birth_date:p.birth_date || '',hometown:p.hometown || '',avatar_url:p.avatar_url || ''}) }).catch(e=>{ error.value=e?.message || 'Không tải được hồ sơ.' })
   w.perform(() => Promise.resolve(), '')
   window.addEventListener('focus',onWindowFocus)
   // Keep the unread badge fresh without requiring users to open the inbox.
@@ -232,6 +284,7 @@ onMounted(() => {
   },60000)
 })
 onUnmounted(() => {
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
   window.removeEventListener('focus',onWindowFocus)
   if (notificationPoll) window.clearInterval(notificationPoll)
 })
@@ -245,7 +298,7 @@ onUnmounted(() => {
       <div class="brand"><span class="brand-mark">S</span><div><strong>SHIFTLY</strong><small>Quản lý nhân sự sự kiện</small></div></div>
       <div class="side-label">{{ isAdmin ? 'QUẢN TRỊ HỆ THỐNG' : manager ? 'QUẢN LÝ CÔNG TY' : 'KHÔNG GIAN CỦA TÔI' }}</div>
       <nav aria-label="Điều hướng chính"><button v-for="item in tabs" :key="item[0]" :class="{selected:tab===item[0]}" @click="tab=item[0]">{{ item[1] }}<span v-if="item[0]==='notifications' && unreadCount" class="nav-unread">{{ unreadCount }}</span></button></nav>
-      <div class="side-bottom"><div class="initial">{{ (user.user_metadata?.full_name || user.email || 'S').slice(0,1).toUpperCase() }}</div><div><b>{{ user.user_metadata?.full_name || roleLabel(role) }}</b><small>{{ roleLabel(role) }} · {{ user.email }}</small></div></div>
+      <div class="side-bottom"><img class="profile-avatar" :src="avatarPreview || accountProfile.avatar_url || defaultAvatar" alt="Ảnh đại diện"><div><b>{{ accountProfile.full_name || roleLabel(role) }}</b><small>{{ roleLabel(role) }} · {{ user.email }}</small></div></div>
     </aside>
     <div class="main-area">
       <header class="topbar"><div><span class="top-brand">SHIFTLY</span><span class="top-title">{{ tabs.find(t => t[0]===tab)?.[1] }}</span></div><button class="text-button" @click="repo.auth.signOut()">Đăng xuất</button></header>
@@ -256,6 +309,7 @@ onUnmounted(() => {
           <div v-else class="company-identity"><span>{{ manager ? 'CÔNG TY ĐANG QUẢN LÝ' : 'CÔNG TY CỦA BẠN' }}</span><strong>{{ current.name }}</strong></div>
         </div></div>
         <div v-if="error" class="alert" role="alert">{{ error }}</div><div v-if="message" class="notice" role="status">{{ message }}</div>
+        <section v-if="tab==='profile'" class="surface section"><h2>Hồ sơ của tôi</h2><p>Áp dụng cho tài khoản {{ roleLabel(role) }}. Quê quán và ảnh có thể bổ sung sau.</p><form class="form" @submit.prevent="saveAccountProfile"><img class="profile-avatar profile-avatar-large" :src="avatarPreview || accountProfile.avatar_url || defaultAvatar" alt="Ảnh đại diện"><label>Ảnh đại diện<input type="file" accept="image/jpeg,image/png,image/webp" @change="chooseAvatar"></label><label>Họ và tên<input v-model="accountProfile.full_name" required maxlength="120"></label><label>Ngày sinh<input v-model="accountProfile.birth_date" type="date"></label><label>Quê quán<input v-model="accountProfile.hometown" maxlength="200" placeholder="Có thể bổ sung sau"></label><button class="primary" :disabled="busy">Lưu hồ sơ</button></form></section>
         <section v-if="!isAdmin && invitations.length" class="surface section"><h2>Lời mời tham gia</h2><div v-for="i in invitations" :key="i.id" class="row"><span>{{ directory.find(c=>c.id===i.company_id)?.name || 'Công ty' }}</span><button :disabled="busy" @click="perform(()=>repo.rpc('accept_company_invitation',{p_invitation:i.id}),'Đã tham gia công ty.')">Chấp nhận</button></div></section>
 
         <section v-if="isAdmin && tab==='approval'" class="overview-grid" aria-label="Tổng quan quản trị">
@@ -403,7 +457,44 @@ onUnmounted(() => {
           <p class="payroll-disclaimer">Ước tính dùng mức lương hiện tại và chỉ tính ca đã chấm công ra. Chưa trừ tạm ứng, bảo hiểm, thuế hoặc xử lý nghỉ phép.</p>
         </section>
 
-        <section v-if="tab==='people'" class="surface section people-section"><div class="section-title"><div><h2>{{ current?.name || 'Thành viên công ty' }}</h2><p>{{ manager ? 'Phân loại nhân sự và thiết lập mức lương.' : 'Danh sách thành viên của công ty đang chọn.' }}</p></div><button v-if="manager" class="primary" @click="modal='invite'">Mời nhân viên</button></div><div v-if="manager && compensationUnavailable" class="notice" role="status">Phần lương đang chờ cập nhật cơ sở dữ liệu.</div><div v-if="!members.length" class="empty">Chưa có thành viên để hiển thị.</div><div v-for="group in memberGroups" :key="group.label" class="member-group"><h3>{{ group.label }} <span>{{ group.items.length }}</span></h3><div v-for="m in group.items" :key="m.user_id" class="row member-row"><div class="member-identity"><b>{{ m.full_name }}</b><small>{{ m.email }}</small><small v-if="manager && payFor(m.user_id)">{{ payFor(m.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(m.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Theo show: {{ money(payFor(m.user_id).show_rate_vnd) }}</small><small v-if="!manager && m.user_id===user.id && payFor(m.user_id)">{{ typeName(payFor(m.user_id).employment_type) }}</small></div><div class="row-actions"><span class="badge">{{ m.role==='manager' ? roleLabel(m.role) : typeShort(payFor(m.user_id)?.employment_type) }}</span><button v-if="manager && m.role!=='manager'" :disabled="busy || compensationUnavailable" @click="openPay(m)">{{ payFor(m.user_id) ? 'Sửa mức lương' : 'Thiết lập' }}</button></div></div></div></section>
+        <section v-if="tab==='people'" class="surface section people-section">
+          <div class="section-title">
+            <div><h2>{{ current?.name || 'Thành viên công ty' }}</h2><p>{{ manager ? 'Quản lý trạng thái làm việc, phân loại chính thức/thời vụ và mức lương của từng người.' : 'Danh sách đồng nghiệp trong công ty đang chọn.' }}</p></div>
+            <button v-if="manager" type="button" class="primary" :disabled="busy" @click="modal='invite'">+ Mời nhân viên</button>
+          </div>
+          <div v-if="manager && compensationUnavailable" class="alert" role="alert">Cần cài đặt bảng lương trong Supabase trước khi sửa mức lương.</div>
+          <div class="people-toolbar">
+            <label>Tìm nhân viên
+              <input v-model.trim="peopleSearch" type="search" placeholder="Tên hoặc email" aria-label="Tìm nhân viên theo tên hoặc email">
+            </label>
+            <label>Bộ lọc
+              <select v-model="peopleFilter">
+                <option value="all">Tất cả nhân sự</option>
+                <option value="active">Đang làm việc</option>
+                <option value="employee">Nhân viên chính thức</option>
+                <option value="freelancer">Nhân viên thời vụ</option>
+                <option value="inactive">Đã tạm ngừng</option>
+              </select>
+            </label>
+          </div>
+          <div v-if="!members.length" class="empty">Công ty chưa có thành viên.</div>
+          <div v-else-if="!filteredMembers.length" class="empty">Không có nhân viên phù hợp bộ lọc.</div>
+          <div v-for="group in memberGroups" :key="group.label" class="member-group">
+            <h3>{{ group.label }} <span>{{ group.items.length }}</span></h3>
+            <div v-for="person in group.items" :key="person.user_id" class="row member-row" :class="{'member-paused': !person.is_active}">
+              <div class="member-identity">
+                <b>{{ person.full_name }}</b><small>{{ person.email }}</small>
+                <small v-if="manager && payFor(person.user_id)">{{ payFor(person.user_id).employment_type==='employee' ? 'Cơ bản: '+money(payFor(person.user_id).monthly_base_vnd)+' / tháng • ' : '' }}Theo show: {{ money(payFor(person.user_id).show_rate_vnd) }}</small>
+                <small v-if="!person.is_active">Đã tạm ngừng · Lịch cũ và chấm công vẫn được giữ</small>
+              </div>
+              <div class="row-actions">
+                <span class="badge">{{ !person.is_active ? 'Tạm ngừng' : person.role==='manager' ? roleLabel(person.role) : typeShort(payFor(person.user_id)?.employment_type) }}</span>
+                <button v-if="manager && person.role==='staff'" type="button" :disabled="busy || compensationUnavailable" @click="openPay(person)">{{ payFor(person.user_id) ? 'Mức lương' : 'Thiết lập lương' }}</button>
+                <button v-if="manager && person.role==='staff'" type="button" :class="{'danger-quiet':person.is_active}" :disabled="busy" @click="toggleMember(person)">{{ person.is_active ? 'Tạm ngừng' : 'Kích hoạt lại' }}</button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section v-if="isAdmin && tab==='companies'" class="surface section"><h2>Công ty trên hệ thống</h2><p>Mỗi công ty có một quản lý đứng tên.</p><div v-if="!adminCompanies.length" class="empty">Chưa có công ty được duyệt.</div><div v-for="c in adminCompanies" :key="c.id" class="row"><div><b>{{ c.name }}</b><small>{{ c.address }} | {{ c.phone }} | {{ c.contact_email }}</small></div><div><b>{{ c.manager_name || 'Chưa có quản lý' }}</b><small>{{ c.manager_email }}</small></div></div></section>
 
