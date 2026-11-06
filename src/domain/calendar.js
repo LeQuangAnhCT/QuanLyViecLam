@@ -38,3 +38,32 @@ export function shiftUpdate(values, companyId, shiftId, existingShifts = []) {
   const { company_id, ...changes } = rows[0]
   return changes
 }
+
+/**
+ * Editing one shift may also assign the same work to more employees.
+ * One original row is updated (preserving its id/attendance), and each
+ * additional employee receives an independent new shift row.
+ * If that row has attendance, its existing employee must remain selected.
+ */
+export function shiftEditPlan(values, companyId, shiftId, existingShifts = [], checkedIn = false) {
+  const previous = existingShifts.find(item => item.id === shiftId && item.company_id === companyId)
+  if (!previous) throw new Error('Không tìm thấy ca làm cần sửa.')
+  const users = [...new Set((values.user_ids || []).filter(Boolean))]
+  if (!users.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
+  if (checkedIn && !users.includes(previous.user_id)) {
+    throw new Error('Ca đã chấm công, không thể bỏ nhân viên đã được phân ca.')
+  }
+  const primaryUser = users.includes(previous.user_id) ? previous.user_id : users[0]
+  const changes = shiftUpdate({ ...values, user_ids: [primaryUser] }, companyId, shiftId, existingShifts)
+  if (checkedIn && Number(changes.cast_vnd) !== Number(previous.cast_vnd ?? 0)) {
+    throw new Error('Ca đã chấm công, không thể thay đổi cast / thù lao.')
+  }
+  const additionalUsers = users.filter(id => id !== primaryUser)
+  const addedRows = additionalUsers.length
+    ? shiftRows({ ...values, user_ids: additionalUsers }, companyId, [
+        ...existingShifts.filter(item => item.id !== shiftId),
+        { ...previous, ...changes }
+      ])
+    : []
+  return { changes, addedRows }
+}
