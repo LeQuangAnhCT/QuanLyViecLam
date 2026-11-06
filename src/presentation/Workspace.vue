@@ -163,15 +163,33 @@ const upcomingCount = computed(() => shifts.value.filter(s => new Date(s.starts_
 const selectedShifts = computed(() => shiftsForDate(selectedDate.value).sort((a,b) => new Date(a.starts_at) - new Date(b.starts_at)))
 const selectedDateLabel = computed(() => new Date(selectedDate.value + 'T12:00:00').toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
 const timeOf = stamp => new Date(stamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca làm việc. Chọn để xem chi tiết.`
+const dayLabel = day => `Ngày ${day}: ${shiftsOn(day).length} ca. ${canSchedule.value ? 'Một chạm để tạo ca mới, hai chạm để mở ca đã có.' : 'Chạm để xem lịch.'}`
 function chooseDay(day) { selectedDate.value = localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day)) }
+let calendarTapTimer = null
+let calendarTap = { day: null, stamp: 0 }
 function clickCalendarCell(day) {
   chooseDay(day)
   if (!canSchedule.value) return
-  const items = shiftsForDate(selectedDate.value)
-  if (items.length === 0) openShift(day)
-  else if (items.length === 1) editShift(items[0])
-  else { error.value = ''; modal.value = 'shift-picker' }
+  const now = Date.now()
+  if (calendarTapTimer && calendarTap.day === day && now - calendarTap.stamp < 350) {
+    clearTimeout(calendarTapTimer)
+    calendarTapTimer = null
+    calendarTap = { day: null, stamp: 0 }
+    const items = shiftsForDate(selectedDate.value)
+    if (items.length === 1) editShift(items[0])
+    else if (items.length > 1) { error.value = ''; modal.value = 'shift-picker' }
+    else openShift(day)
+    return
+  }
+  if (calendarTapTimer) clearTimeout(calendarTapTimer)
+  calendarTap = { day, stamp: now }
+  calendarTapTimer = setTimeout(() => {
+    calendarTapTimer = null
+    if (calendarTap.day === day) {
+      calendarTap = { day: null, stamp: 0 }
+      openShift(day)
+    }
+  }, 350)
 }
 function chooseShiftStaff(userId, checked) {
   if (editingShiftId.value && crewMemberClocked(userId) && !checked) return
@@ -233,8 +251,9 @@ async function saveShift() {
   busy.value=true; error.value=''; message.value=''
   try {
     if (editingShiftId.value) {
-      const change=plan.updates[0]?.changes || plan.addedRows[0]
-      await repo.updateWorkAssignments(editingShiftId.value,change,shift.user_ids)
+      const work=shiftRows({ ...shift, user_ids:[shift.user_ids[0]] },companyId.value,
+        shifts.value.filter(s=>!editingCrew.value.some(g=>g.id===s.id)))[0]
+      await repo.updateWorkAssignments(editingShiftId.value,work,shift.user_ids)
     } else {
       await repo.insert('company_shifts',rows)
     }
@@ -249,6 +268,7 @@ async function saveShift() {
       'P4512':'Ca đã chấm công, không được thay đổi Cast hoặc bỏ nhân viên đã chấm công.',
       'P4561':'Chỉ Manager mới được cập nhật phân công.',
       'PGRST202':'Cần chạy supabase/multi_staff_assignment.sql trong Supabase.',
+      'P4562':'Danh sách phân công hoặc dữ liệu ca chưa hợp lệ.',
       'PGRST205':'Bảng lịch chưa tồn tại trong Supabase.'
     }
     error.value=errors[e?.code] || e?.message || 'Không thể lưu ca. Vui lòng thử lại.'
@@ -332,6 +352,7 @@ onMounted(() => {
   },60000)
 })
 onUnmounted(() => {
+  if (calendarTapTimer) clearTimeout(calendarTapTimer)
   if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
   window.removeEventListener('focus',onWindowFocus)
   if (notificationPoll) window.clearInterval(notificationPoll)
@@ -568,9 +589,9 @@ onUnmounted(() => {
         </div>
         <div class="form-actions"><button type="button" @click="modal=''">Đóng</button><button type="button" class="primary" @click="createShiftOnSelectedDay">+ Thêm ca khác</button></div>
       </section>
-      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><div class="location-field"><span class="location-title">Địa điểm ca làm</span><LocationPicker v-model="shift.location" required detail-label="Tên địa điểm / số nhà, đường (tùy chọn)" /></div><div class="form-grid"><label>Ngày làm việc<input :value="new Date(shift.date + 'T12:00:00').toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'})" readonly aria-label="Ngày làm việc"></label><label>Buổi<select :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label><label>Kết thúc<input v-model="shift.end" type="time" required :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))"></label></div><label>Cast / thù lao ca (VNĐ)<input v-model.number="shift.cast_vnd" type="number" min="0" max="100000000" step="1000" inputmode="numeric" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" required></label><div class="cast-presets" role="group" aria-label="Chọn nhanh mức cast"><button v-for="amount in [300,400,500,600,700,1000]" :key="amount" type="button" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" :class="{selected: Number(shift.cast_vnd) === amount*1000}" :aria-pressed="Number(shift.cast_vnd) === amount*1000" @click="shift.cast_vnd=amount*1000">{{ amount === 1000 ? '1.000' : amount }}K</button></div><fieldset><legend>Phân công nhân viên</legend><label v-for="m in staffMembers" :key="m.user_id" class="check"><input :checked="shift.user_ids.includes(m.user_id)" :disabled="!!(editingShiftId && clockRecordFor(editingShiftId))" :value="m.user_id" type="checkbox" @change="chooseShiftStaff(m.user_id, $event.target.checked)">{{ m.full_name }} · {{ typeShort(payFor(m.user_id)?.employment_type) }} ({{ m.email }})</label><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions">
-          <button v-if="editingShift && !clockRecordFor(editingShiftId)" type="button" class="danger-quiet" :disabled="busy" @click="removeShift(editingShift)">Hủy ca</button>
-          <span v-if="editingShift && clockRecordFor(editingShiftId)" class="clock-locked">Ca đã chấm công, không thể hủy, đổi giờ, nhân viên hoặc cast</span>
+      <form v-else class="form" @submit.prevent="saveShift"><label>Công việc / sự kiện<input v-model="shift.title" required maxlength="200"></label><div class="location-field"><span class="location-title">Địa điểm ca làm</span><LocationPicker v-model="shift.location" required detail-label="Tên địa điểm / số nhà, đường (tùy chọn)" /></div><div class="form-grid"><label>Ngày làm việc<input :value="new Date(shift.date + 'T12:00:00').toLocaleDateString('vi-VN',{weekday:'long',day:'numeric',month:'long'})" readonly aria-label="Ngày làm việc"></label><label>Buổi<select :disabled="!!(editingShiftId && crewHasClocked)" @change="setPeriod"><option value="morning">Sáng</option><option value="afternoon">Chiều</option><option value="evening">Tối</option><option value="all">Cả ngày</option><option value="custom">Tự chọn</option></select></label><label>Bắt đầu<input v-model="shift.start" type="time" required :disabled="!!(editingShiftId && crewHasClocked)"></label><label>Kết thúc<input v-model="shift.end" type="time" required :disabled="!!(editingShiftId && crewHasClocked)"></label></div><label>Cast / thù lao ca (VNĐ)<input v-model.number="shift.cast_vnd" type="number" min="0" max="100000000" step="1000" inputmode="numeric" :disabled="!!(editingShiftId && crewHasClocked)" required></label><div class="cast-presets" role="group" aria-label="Chọn nhanh mức cast"><button v-for="amount in [300,400,500,600,700,1000]" :key="amount" type="button" :disabled="!!(editingShiftId && crewHasClocked)" :class="{selected: Number(shift.cast_vnd) === amount*1000}" :aria-pressed="Number(shift.cast_vnd) === amount*1000" @click="shift.cast_vnd=amount*1000">{{ amount === 1000 ? '1.000' : amount }}K</button></div><fieldset><legend>Phân công nhân viên</legend><label v-for="m in staffMembers" :key="m.user_id" class="check"><input :checked="shift.user_ids.includes(m.user_id)" :disabled="!!(editingShiftId && crewMemberClocked(m.user_id))" :value="m.user_id" type="checkbox" @change="chooseShiftStaff(m.user_id, $event.target.checked)">{{ m.full_name }} · {{ typeShort(payFor(m.user_id)?.employment_type) }} ({{ m.email }})</label><div v-if="!staffMembers.length" class="no-staff-hint"><p>Chưa có nhân viên Staff thuộc công ty này. Bạn cần mời nhân viên và đợi họ tham gia trước khi phân ca.</p><button type="button" @click="modal='invite'">+ Mời nhân viên</button></div></fieldset><div class="form-actions">
+          <button v-if="editingShift && !crewHasClocked" type="button" class="danger-quiet" :disabled="busy" @click="removeShift(editingShift)">Hủy ca</button>
+          <span v-if="editingShift && crewHasClocked" class="clock-locked">Ca đã chấm công, không thể hủy, đổi giờ, nhân viên hoặc cast</span>
           <button type="button" @click="modal=''">Đóng</button>
           <button class="primary" :disabled="busy || !staffMembers.length"> {{ editingShiftId ? 'Lưu thay đổi' : 'Lưu phân ca' }}</button>
         </div></form>
