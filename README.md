@@ -42,8 +42,8 @@ chỉ **Manager** được thay đổi trong mục **Quản lý nhân sự → T
 
 | Loại hiển thị | Mã lưu DB | Cách tính ước tính |
 | --- | --- | --- |
-| **Nhân viên chính thức** | `employee` | Lương cơ bản thỏa thuận/tháng + tiền phụ cấp mỗi show *đã chấm công ra* |
-| **Nhân viên thời vụ** | `freelancer` | Chỉ tính tiền mỗi show *đã chấm công ra*; không có lương cơ bản |
+| **Nhân viên chính thức** | `employee` | Lương cơ bản/tháng + phụ cấp hàng tháng + tổng Cast của những ca đã chấm công ra |
+| **Nhân viên thời vụ** | `freelancer` | Phụ cấp hàng tháng (nếu có) + tổng Cast của những ca đã chấm công ra; không có lương cơ bản |
 
 Giữ nguyên mã `freelancer` để **không chuyển đổi hoặc xóa dữ liệu cũ**. Nhân viên
 mới gia nhập mặc định được tạo bản ghi lương **thời vụ, đơn giá 0₫** cho tới khi
@@ -52,7 +52,7 @@ của chính họ.
 
 Menu **Bảng công & lương** của Manager xem theo tháng, phân biệt ca đã phân và ca
 hoàn tất chấm công. Menu **Thu nhập** của Staff cũng có thống kê cá nhân.
-**Các con số chỉ là ước tính theo đơn giá hiện tại**, không phải bảng lương,
+**Các con số chỉ là ước tính theo lương cơ bản, phụ cấp tháng và Cast của ca đã hoàn tất**, không phải bảng lương,
 quyết toán hay tiền đã trả: chưa áp dụng thuế, bảo hiểm, tạm ứng, nghỉ phép,
 quy tắc làm thêm hoặc lịch sử điều chỉnh đơn giá. Lương tháng chưa được tính
 theo tỷ lệ ngày công hoặc số ngày bắt đầu hợp đồng.
@@ -166,10 +166,20 @@ Không nên gọi các tính năng trên là đã hoàn thành chỉ vì hiện 
 
 - Trong **Hồ sơ của tôi**, Manager nhập **Quê quán** và **Khu vực đang hoạt động** bằng tỉnh/thành phố, phường/xã. Bộ chọn có ô tìm kiếm; khu vực hoạt động tự điền vào địa điểm ca mới, có thể thay đổi ngay trong form phân ca.
 - Ca làm mới chỉ có **một ngày** (ngày lấy từ ô lịch và không sửa trong biểu mẫu). Ngày hiển thị thứ, ngày và tháng, không hiện năm. Giờ kết thúc phải sau giờ bắt đầu trong cùng ngày.
-- Trường **Cast / thù lao ca** lưu số tiền VND; gợi ý 300K, 400K, 500K, 600K, 700K, 1.000K hoặc tự nhập. Đây là thù lao dự kiến của ca, chưa tự động cộng vào bảng lương hiện tại.
+- Trường **Cast / thù lao ca** lưu số tiền VND; gợi ý 300K, 400K, 500K, 600K, 700K, 1.000K hoặc tự nhập. Đây là thù lao dự kiến của ca; hệ thống cộng Cast vào bảng lương khi nhân viên đã chấm công ra.
 - Manager có tab **Thông báo**: nhân viên chấm công vào/ra và yêu cầu gia nhập công ty; có số lượng chưa đọc và đánh dấu đã đọc. Staff vẫn nhận thông báo ca làm như trước.
 - **Database cũ**: chạy `supabase/manager_location_cast.sql` rồi `supabase/manager_notifications.sql` trong Supabase SQL Editor. **Database mới**: dùng `supabase/FULL_SETUP_FROM_SCRATCH.sql` đã tích hợp hai thay đổi. Push GitHub không tự chạy SQL.
 
 ### Khóa cast sau chấm công và giữ giao diện chọn nhân viên
 
-Khi cập nhật ca, Manager vẫn thấy danh sách nhân viên dạng checkbox giống lúc tạo ca, nhưng mỗi ca hiện hữu chỉ có thể gán cho một người. Sau khi nhân viên đã chấm công vào, checkbox chọn nhân viên, giờ làm và trường/nút cast đều bị khóa; database cũng từ chối mọi yêu cầu đổi cast trực tiếp với lỗi `P4512`. Với Supabase đang chạy, áp dụng `supabase/lock_clocked_shift_cast.sql` trong SQL Editor; bản cài đặt mới đã bao gồm migration này.
+Khi cập nhật một công việc, Manager vẫn thấy checkbox như lúc tạo và có thể chọn nhiều nhân viên; mỗi người được lưu một ca riêng để chấm công. Sau khi có nhân viên chấm công vào, nhân viên đã chấm công không thể bị bỏ khỏi công việc, giờ làm và trường/nút Cast của nhóm đều bị khóa; database cũng từ chối mọi yêu cầu đổi cast trực tiếp với lỗi `P4512`. Với Supabase đang chạy, áp dụng `supabase/lock_clocked_shift_cast.sql` trong SQL Editor; bản cài đặt mới đã bao gồm migration này.
+
+
+## Cập nhật phân ca, lương và giao diện (06/11/2026)
+
+- **Lịch Manager**: chạm một lần vào ngày (kể cả ngày đã có ca) để tạo ca mới; chạm nhanh hai lần trong khoảng 350 ms để chọn sửa ca đã có. Nút **+ Thêm ca** và **Sửa ca** tại chi tiết ngày vẫn hoạt động.
+- **Phân nhiều nhân viên**: checkbox chọn được nhiều Staff cả khi tạo lẫn sửa. Khi sửa, tất cả ca cùng công việc, địa điểm, thời điểm và Cast được chỉnh như một nhóm. Không thể bỏ người đã chấm công hoặc đổi giờ/Cast của nhóm sau khi có chấm công. Việc sửa nhóm được lưu nguyên tử bằng RPC, không để trạng thái phân công dở dang.
+- **Lương mới**: chính thức = lương tháng + phụ cấp hàng tháng + Cast các ca hoàn tất; thời vụ = phụ cấp tháng (nếu có) + Cast các ca hoàn tất. Giờ thực tế = tổng thời gian giữa chấm công vào và chấm công ra. Đây vẫn là **báo cáo ước tính**, chưa tính thuế, bảo hiểm, khấu trừ và không tự quyết toán.
+- **UI**: không hiển thị thanh cuộn, nhưng vẫn cuộn được bằng chuột, bàn di chuột, cảm ứng và bàn phím.
+- **Database đang sử dụng**: sau khi đảm bảo đã có các migration hồ sơ/địa điểm/Cast trước đó, chạy `supabase/multi_staff_assignment.sql` và `supabase/monthly_cast_payroll.sql` trong Supabase SQL Editor. Hoặc chạy `supabase/production_upgrade.sql` tổng hợp trên schema đã cài đặt. **Sao lưu dữ liệu trước khi chạy; không chạy file `RESET_SHIFTLY_ONLY.sql` trên database đang dùng.** File `supabase/FULL_SETUP_FROM_SCRATCH.sql` dành cho database hoàn toàn mới.
+- **Vercel**: cấu hình `vercel.json` tiếp tục không tự deploy Production mỗi khi cập nhật `main`.
