@@ -11,6 +11,7 @@
 .calendar-wrap{overscroll-behavior-inline:contain}
 .day-button{vertical-align:top}
 .dialog{overscroll-behavior:contain}
+.dialog-small{width:min(420px,100%)}
 .form-actions{flex-wrap:wrap}
 .people-section .section-title{padding-bottom:6px}
 .member-group{margin-top:18px}
@@ -263,3 +264,10 @@ input[type="search"]{appearance:none}
 
 /* Keep success/notice styling strictly monochrome. */
 .notice{background:#f0f0ef;color:#272727;border-color:#cececa}
+
+.location-picker{display:grid;gap:12px;margin-top:7px}
+.location-picker .form-grid{margin:0}
+.location-field{display:block}
+.location-title{display:block;font-size:12px;font-weight:650;color:#444}
+.location-current{font-size:12px;margin:0;color:#666}
+.location-clear{justify-self:start;padding-left:0}
