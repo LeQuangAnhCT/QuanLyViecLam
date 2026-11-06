@@ -39,31 +39,37 @@ export function shiftUpdate(values, companyId, shiftId, existingShifts = []) {
   return changes
 }
 
-/**
- * Editing one shift may also assign the same work to more employees.
- * One original row is updated (preserving its id/attendance), and each
- * additional employee receives an independent new shift row.
- * If that row has attendance, its existing employee must remain selected.
- */
-export function shiftEditPlan(values, companyId, shiftId, existingShifts = [], checkedIn = false) {
-  const previous = existingShifts.find(item => item.id === shiftId && item.company_id === companyId)
-  if (!previous) throw new Error('Không tìm thấy ca làm cần sửa.')
-  const users = [...new Set((values.user_ids || []).filter(Boolean))]
-  if (!users.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
-  if (checkedIn && !users.includes(previous.user_id)) {
-    throw new Error('Ca đã chấm công, không thể bỏ nhân viên đã được phân ca.')
+/** Existing assignment rows share a work slot until grouped IDs are introduced. */
+export function sameWorkSlot(a,b) {
+  return a.company_id===b.company_id && a.title===b.title &&
+    (a.location || '')===(b.location || '') &&
+    a.starts_at===b.starts_at && a.ends_at===b.ends_at &&
+    Number(a.cast_vnd || 0)===Number(b.cast_vnd || 0)
+}
+export function shiftEditPlan(values, companyId, shiftId, existingShifts = [], clockedShiftIds = []) {
+  const original = existingShifts.find(s=>s.id===shiftId && s.company_id===companyId)
+  if (!original) throw new Error('Không tìm thấy ca làm cần sửa.')
+  const group=existingShifts.filter(s=>sameWorkSlot(s,original))
+  const groupedIds=new Set(group.map(s=>s.id))
+  const selectedIds=[...new Set((values.user_ids || []).filter(Boolean))]
+  if (!selectedIds.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
+  const clocked=new Set(clockedShiftIds)
+  if(group.some(s=>clocked.has(s.id)&&!selectedIds.includes(s.user_id))) {
+    throw new Error('Không thể bỏ nhân viên đã chấm công khỏi công việc.')
   }
-  const primaryUser = users.includes(previous.user_id) ? previous.user_id : users[0]
-  const changes = shiftUpdate({ ...values, user_ids: [primaryUser] }, companyId, shiftId, existingShifts)
-  if (checkedIn && Number(changes.cast_vnd) !== Number(previous.cast_vnd ?? 0)) {
-    throw new Error('Ca đã chấm công, không thể thay đổi cast / thù lao.')
+  const targetRows=shiftRows(values,companyId,existingShifts.filter(s=>!groupedIds.has(s.id)))
+  if(group.some(s=>clocked.has(s.id)&&(
+     s.starts_at!==targetRows[0].starts_at ||
+     s.ends_at!==targetRows[0].ends_at ||
+     Number(s.cast_vnd || 0)!==Number(targetRows[0].cast_vnd || 0)))) {
+    throw new Error('Ca đã chấm công, không thể thay giờ hoặc Cast.')
   }
-  const additionalUsers = users.filter(id => id !== primaryUser)
-  const addedRows = additionalUsers.length
-    ? shiftRows({ ...values, user_ids: additionalUsers }, companyId, [
-        ...existingShifts.filter(item => item.id !== shiftId),
-        { ...previous, ...changes }
-      ])
-    : []
-  return { changes, addedRows }
+  const updates=[],addedRows=[]
+  for(const row of targetRows){
+    const old=group.find(s=>s.user_id===row.user_id)
+    if(old){ const {company_id,...changes}=row; updates.push({id:old.id,changes}) }
+    else addedRows.push(row)
+  }
+  const removedIds=group.filter(s=>!selectedIds.includes(s.user_id)).map(s=>s.id)
+  return {updates,addedRows,removedIds,group}
 }
