@@ -1219,7 +1219,7 @@ onUnmounted(() => {
                   <template v-if="item.company_id">
                     {{ directory.find((c) => c.id === item.company_id)?.name || 'Công ty' }} ·
                   </template>
-                  {{ new Date(item.created_at).toLocaleString('vi-VN') }}
+                  {{ new Date(item.created_at).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) }}
                 </small>
                 <p>{{ item.body }}</p>
               </div>
