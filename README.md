@@ -177,4 +177,4 @@ Khi cập nhật một công việc, Manager vẫn thấy checkbox như lúc t�
 - **Lương mới**: chính thức = lương tháng + phụ cấp hàng tháng + Cast các ca hoàn tất; thời vụ = phụ cấp tháng (nếu có) + Cast các ca hoàn tất. Giờ thực tế = tổng thời gian giữa chấm công vào và chấm công ra. Đây vẫn là **báo cáo ước tính**, chưa tính thuế, bảo hiểm, khấu trừ và không tự quyết toán.
 - **UI**: không hiển thị thanh cuộn, nhưng vẫn cuộn được bằng chuột, bàn di chuột, cảm ứng và bàn phím.
 - **Database đang sử dụng**: sau khi đảm bảo đã có các migration hồ sơ/địa điểm/Cast trước đó, chạy `supabase/multi_staff_assignment.sql` và `supabase/monthly_cast_payroll.sql` trong Supabase SQL Editor. Hoặc chạy `supabase/production_upgrade.sql` tổng hợp trên schema đã cài đặt. **Sao lưu dữ liệu trước khi chạy; không chạy file `RESET_SHIFTLY_ONLY.sql` trên database đang dùng.** File `supabase/FULL_SETUP_FROM_SCRATCH.sql` dành cho database hoàn toàn mới.
-- **Vercel**: cấu hình `vercel.json` tiếp tục không tự deploy Production mỗi khi cập nhật `main`.
+- **Vercel** tự động triển khai các commit mới trên `main` theo cấu hình `vercel.json`.
