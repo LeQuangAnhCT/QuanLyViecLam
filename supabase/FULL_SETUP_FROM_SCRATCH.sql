@@ -1244,7 +1244,7 @@ begin
     end if;
   end loop;
 end $$;
-revoke all on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) from public;
+revoke all on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) from public, anon;
 grant execute on function public.manager_update_work_assignments(uuid,uuid[],text,text,timestamptz,timestamptz,bigint) to authenticated;
 notify pgrst, 'reload schema';
 
@@ -1258,13 +1258,63 @@ alter table public.member_compensation add constraint member_compensation_monthl
 alter table public.member_compensation alter column show_rate_vnd set default 0;
 
 -- PostgreSQL requires DROP before changing an existing table-return signature.
+-- Record expenses while an assigned Staff member's attendance is open.
+alter table public.shift_attendance
+  add column if not exists expenses jsonb not null default '[]'::jsonb,
+  add column if not exists expense_total_vnd bigint not null default 0;
+
+create or replace function public.add_shift_expense(p_shift uuid, p_id uuid, p_note text, p_amount bigint)
+returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  entry public.shift_attendance;
+  expense jsonb;
+begin
+  if p_id is null or p_note is null or char_length(btrim(p_note)) not between 1 and 160
+     or p_amount is null or p_amount not between 1 and 100000000 then
+    raise exception 'Chi phí phát sinh không hợp lệ' using errcode='P4532';
+  end if;
+  select a.* into entry from public.shift_attendance a
+    where a.shift_id=p_shift and a.user_id=auth.uid()
+      and public.account_active()
+      and coalesce(auth.jwt()->'app_metadata'->>'role','') <> 'admin'
+      and exists (
+        select 1 from public.company_members m
+        where m.company_id=a.company_id and m.user_id=a.user_id and m.role='staff'
+      )
+    for update;
+  if not found then
+    raise exception 'Bạn cần chấm công cho ca của mình trước khi nhập chi phí' using errcode='P4530';
+  end if;
+  expense := jsonb_build_object('id',p_id,'note',btrim(p_note),'amount_vnd',p_amount);
+  if entry.expenses @> jsonb_build_array(expense) then
+    return to_jsonb(entry);
+  end if;
+  if entry.checked_out_at is not null then
+    raise exception 'Ca đã hoàn thành, không thể thêm chi phí' using errcode='P4531';
+  end if;
+  if entry.expenses @> jsonb_build_array(jsonb_build_object('id',p_id))
+     or jsonb_array_length(entry.expenses) >= 100 then
+    raise exception 'Khoản chi đã tồn tại hoặc đã đạt giới hạn 100 khoản' using errcode='P4532';
+  end if;
+  update public.shift_attendance a
+    set expenses=a.expenses || jsonb_build_array(expense),
+        expense_total_vnd=a.expense_total_vnd + p_amount
+    where a.shift_id=p_shift
+    returning a.* into entry;
+  return to_jsonb(entry);
+end $$;
+revoke all on function public.add_shift_expense(uuid,uuid,text,bigint) from public, anon;
+grant execute on function public.add_shift_expense(uuid,uuid,text,bigint) to authenticated;
+notify pgrst, 'reload schema';
+
 drop function if exists public.company_staff_summary(uuid,date);
 create function public.company_staff_summary(p_company uuid,p_month date)
 returns table (
   user_id uuid, full_name text, email text, employment_type text,
   monthly_base_vnd numeric, monthly_allowance_vnd numeric,
   scheduled_shifts bigint, completed_shifts bigint, worked_hours numeric,
-  cast_total_vnd numeric, estimated_total_vnd numeric
+  planned_cast_vnd numeric, cast_total_vnd numeric, estimated_total_vnd numeric
 )
 language plpgsql stable security definer set search_path=public as $$
 declare first_day timestamptz; next_month timestamptz;
@@ -1291,9 +1341,10 @@ begin
     count(a.shift_id) filter (where a.checked_out_at is not null)::bigint,
     round(coalesce(sum(extract(epoch from (a.checked_out_at-a.checked_in_at))/3600.0)
       filter (where a.checked_out_at is not null),0)::numeric,2),
-    coalesce(sum(s.cast_vnd) filter (where a.checked_out_at is not null),0)::numeric,
+    coalesce(sum(s.cast_vnd),0)::numeric,
+    coalesce(sum(s.cast_vnd + coalesce(a.expense_total_vnd,0)) filter (where a.checked_out_at is not null),0)::numeric,
     (coalesce(p.monthly_base_vnd,0) + p.monthly_allowance_vnd +
-      coalesce(sum(s.cast_vnd) filter (where a.checked_out_at is not null),0))::numeric
+      coalesce(sum(s.cast_vnd + coalesce(a.expense_total_vnd,0)) filter (where a.checked_out_at is not null),0))::numeric
   from public.company_members m
     join auth.users u on u.id=m.user_id
     join public.member_compensation p on p.company_id=m.company_id and p.user_id=m.user_id
@@ -1305,8 +1356,108 @@ begin
     p.monthly_base_vnd,p.monthly_allowance_vnd
   order by coalesce(u.raw_user_meta_data->>'full_name',u.email::text);
 end $$;
-revoke all on function public.company_staff_summary(uuid,date) from public;
+revoke all on function public.company_staff_summary(uuid,date) from public, anon;
 grant execute on function public.company_staff_summary(uuid,date) to authenticated;
+notify pgrst, 'reload schema';
+
+-- Admin account details use Auth for platform roles and memberships for company roles.
+create or replace function public.admin_account_directory()
+returns table (
+  user_id uuid, email text, full_name text, disabled boolean, reason text,
+  role text, age integer, hometown text, active_location text
+)
+language sql stable security definer set search_path = '' as $$
+  select a.user_id, a.email, coalesce(nullif(btrim(p.full_name), ''), a.full_name),
+         a.disabled, a.reason,
+         case
+           when u.raw_app_meta_data->>'role' = 'admin' then 'admin'
+           when exists (
+             select 1 from public.company_members m
+             where m.user_id = a.user_id and m.role = 'manager'
+           ) then 'manager'
+           else 'staff'
+         end,
+         case when isfinite(details.birth_date) and details.birth_date <= details.today
+           then extract(year from age(details.today, details.birth_date))::integer
+         end,
+         nullif(btrim(to_jsonb(p)->>'hometown'), ''),
+         nullif(btrim(to_jsonb(p)->>'active_location'), '')
+  from public.admin_list_accounts() a
+  join auth.users u on u.id = a.user_id
+  left join public.profiles p on p.id = a.user_id
+  cross join lateral (
+    select (to_jsonb(p)->>'birth_date')::date as birth_date,
+           (now() at time zone 'Asia/Ho_Chi_Minh')::date as today
+  ) details
+  where (select auth.uid()) is not null
+    and coalesce((select auth.jwt())->'app_metadata'->>'role', '') = 'admin'
+    and public.account_active()
+$$;
+revoke all on function public.admin_account_directory() from public, anon;
+grant execute on function public.admin_account_directory() to authenticated;
+notify pgrst, 'reload schema';
+
+-- Classify the accounts and colleagues a caller can already list.
+-- Compensation remains private to each worker and the company's Manager.
+create schema if not exists shiftly_private;
+revoke all on schema shiftly_private from public, anon;
+grant usage on schema shiftly_private to authenticated;
+
+create or replace function shiftly_private.workspace_roles(p_company uuid)
+returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  is_admin boolean := coalesce(auth.jwt()->'app_metadata'->>'role','') = 'admin';
+begin
+  if auth.uid() is null or not public.account_active() then return '{}'::jsonb; end if;
+
+  if p_company is null and is_admin then
+    return (
+      select coalesce(jsonb_object_agg(a.user_id, case
+        when u.raw_app_meta_data->>'role' = 'admin' then 'admin'
+        when company_roles.is_manager then 'manager'
+        when company_roles.is_official_staff then 'staff'
+        else 'freelance'
+      end), '{}'::jsonb)
+      from public.admin_list_accounts() a
+      join auth.users u on u.id = a.user_id
+      left join (
+        select m.user_id,
+               bool_or(m.role = 'manager') as is_manager,
+               bool_or(m.role = 'staff' and p.employment_type = 'employee') as is_official_staff
+        from public.company_members m
+        left join public.member_compensation p using (company_id, user_id)
+        group by m.user_id
+      ) company_roles on company_roles.user_id = a.user_id
+    );
+  end if;
+
+  if p_company is not null and not is_admin and public.is_company_member(p_company) then
+    return (
+      select coalesce(jsonb_object_agg(m.user_id, case
+        when m.role = 'manager' then 'manager'
+        when p.employment_type = 'employee' then 'staff'
+        else 'freelance'
+      end), '{}'::jsonb)
+      from public.company_members m
+      left join public.member_compensation p using (company_id, user_id)
+      where m.company_id = p_company
+    );
+  end if;
+
+  return '{}'::jsonb;
+end
+$$;
+revoke all on function shiftly_private.workspace_roles(uuid) from public, anon;
+grant execute on function shiftly_private.workspace_roles(uuid) to authenticated;
+
+create or replace function public.workspace_roles(p_company uuid default null)
+returns jsonb
+language sql stable security invoker set search_path = '' as $$
+  select shiftly_private.workspace_roles(p_company)
+$$;
+revoke all on function public.workspace_roles(uuid) from public, anon;
+grant execute on function public.workspace_roles(uuid) to authenticated;
 notify pgrst, 'reload schema';
 
 commit;

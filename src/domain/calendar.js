@@ -1,6 +1,30 @@
 export const localDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
 export const hours = (shift) => ((new Date(shift.ends_at) - new Date(shift.starts_at)) / 3600000).toFixed(2)
-export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'Nhân viên' })[role] || 'Nhân viên'
+export const effectiveShiftEnd = (shift, attendance) =>
+  Date.parse(attendance?.checked_out_at) > Date.parse(shift.ends_at) ? attendance.checked_out_at : shift.ends_at
+
+const shiftTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
+  timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short', hour: 'numeric', minute: '2-digit', hourCycle: 'h23'
+})
+
+export function shortShiftTime(stamp) {
+  const { weekday, hour, minute } = Object.fromEntries(
+    shiftTimeFormatter.formatToParts(new Date(stamp)).map(({ type, value }) => [type, value])
+  )
+  const day = weekday.match(/\d+/)?.[0]
+  const h = Number(hour)
+  const period = h < 12 ? 'Sáng' : h < 18 ? 'Chiều' : 'Tối'
+  return `${period} ${day ? 'T' + day : 'CN'}, ${h}h${minute === '00' ? '' : minute}`
+}
+export const workerRole = employmentType => employmentType === 'employee' ? 'staff' : 'freelance'
+export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'Staff chính thức', freelance: 'Freelance' })[role] || 'Nhân sự'
+
+export class ShiftOverlapError extends Error {
+  constructor(shift) {
+    super('Một nhân viên đã có ca làm trùng khoảng thời gian này.')
+    this.shift = shift
+  }
+}
 
 export function shiftRows(values, companyId, existingShifts = []) {
   const users = [...new Set((values.user_ids || []).filter(Boolean))]
@@ -8,7 +32,7 @@ export function shiftRows(values, companyId, existingShifts = []) {
   if (!users.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
   if (!values.date || !values.start || !values.end) throw new Error('Hãy nhập đầy đủ ngày và giờ làm.')
   const start = new Date(`${values.date}T${values.start}`)
-  const end = new Date(`${values.date}T${values.end}`)
+  const end = new Date(`${values.end_date || values.date}T${values.end}`)
   const duration = end - start
   if (!Number.isFinite(duration) || duration <= 0) throw new Error('Thời gian kết thúc phải sau thời gian bắt đầu.')
   if (duration > 24 * 3600000) throw new Error('Một ca không được dài hơn 24 giờ. Hãy chia thành nhiều ca.')
@@ -16,7 +40,7 @@ export function shiftRows(values, companyId, existingShifts = []) {
   const cast = Number(values.cast_vnd ?? 0)
   if (!Number.isInteger(cast) || cast < 0 || cast > 100000000) throw new Error('Cast phải là số tiền hợp lệ.')
   const conflict = existingShifts.find(s => users.includes(s.user_id) && start < new Date(s.ends_at) && end > new Date(s.starts_at))
-  if (conflict) throw new Error('Một nhân viên đã có ca làm trùng khoảng thời gian này.')
+  if (conflict) throw new ShiftOverlapError(conflict)
   return users.map(user_id => ({
     company_id: companyId, user_id, title: values.title.trim(), location: values.location.trim(),
     starts_at: start.toISOString(), ends_at: end.toISOString(), cast_vnd: cast

@@ -36,3 +36,40 @@ language sql stable security definer set search_path=public as $$
 $$;
 revoke all on function public.admin_company_directory() from public;
 grant execute on function public.admin_company_directory() to authenticated;
+
+-- Admin account details use Auth for platform roles and memberships for company roles.
+create or replace function public.admin_account_directory()
+returns table (
+  user_id uuid, email text, full_name text, disabled boolean, reason text,
+  role text, age integer, hometown text, active_location text
+)
+language sql stable security definer set search_path = '' as $$
+  select a.user_id, a.email, coalesce(nullif(btrim(p.full_name), ''), a.full_name),
+         a.disabled, a.reason,
+         case
+           when u.raw_app_meta_data->>'role' = 'admin' then 'admin'
+           when exists (
+             select 1 from public.company_members m
+             where m.user_id = a.user_id and m.role = 'manager'
+           ) then 'manager'
+           else 'staff'
+         end,
+         case when isfinite(details.birth_date) and details.birth_date <= details.today
+           then extract(year from age(details.today, details.birth_date))::integer
+         end,
+         nullif(btrim(to_jsonb(p)->>'hometown'), ''),
+         nullif(btrim(to_jsonb(p)->>'active_location'), '')
+  from public.admin_list_accounts() a
+  join auth.users u on u.id = a.user_id
+  left join public.profiles p on p.id = a.user_id
+  cross join lateral (
+    select (to_jsonb(p)->>'birth_date')::date as birth_date,
+           (now() at time zone 'Asia/Ho_Chi_Minh')::date as today
+  ) details
+  where (select auth.uid()) is not null
+    and coalesce((select auth.jwt())->'app_metadata'->>'role', '') = 'admin'
+    and public.account_active()
+$$;
+revoke all on function public.admin_account_directory() from public, anon;
+grant execute on function public.admin_account_directory() to authenticated;
+notify pgrst, 'reload schema';

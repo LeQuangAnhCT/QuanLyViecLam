@@ -21,48 +21,42 @@
 
 **Cập nhật database đang sử dụng**: `supabase/production_upgrade.sql` nâng cấp không xóa dữ liệu; `supabase/account_profile_upgrade.sql` bổ sung hồ sơ và avatar. Nếu database ban đầu chưa có bảng cốt lõi, dùng full-install mới hoặc chạy các migration nền tảng đúng thứ tự; không chạy upgrade đơn lẻ trên database trống.
 
-**Trạng thái nhân viên**: Manager có thể tạm ngừng/kích hoạt lại Staff, giữ nguyên lịch sử chấm công và lương. Các ca tương lai chưa chấm công sẽ bị hủy khi tạm ngừng; ca đang chấm công phải kết thúc trước. Nhân viên tạm ngừng không được phân ca hoặc chấm công vào ca mới.
+**Trạng thái nhân viên.** Manager có thể tạm ngừng hoặc kích hoạt lại Staff và Freelance. Khi tạm ngừng, hệ thống hủy các ca tương lai chưa chấm công và lưu lịch sử chấm công, lương. Nhân viên cần hoàn tất ca đang làm trước khi Manager tạm ngừng.
 
 ## Vai trò và ranh giới nghiệp vụ
 
-| Vai trò | Được phép | Không được phép |
-| --- | --- | --- |
-| **Admin hệ thống** (app_metadata.role = admin) | Duyệt/từ chối đăng ký công ty, xem danh sách công ty, vô hiệu hóa/khôi phục tài khoản | Phân ca, thay đổi mức lương, duyệt yêu cầu gia nhập thay cho Manager |
-| **Manager** (company_members.role = manager) | Xem ca của công ty, tạo/sửa/hủy ca **chưa chấm công**, quản lý nhân viên và mức lương | Quản trị nền tảng; hủy ca đã được nhân viên chấm công |
-| **Staff** (company_members.role = staff) | Xem lịch được giao, chấm công vào/ra thực tế, giờ dự kiến và thông báo thay đổi ca | Tạo/sửa/hủy ca hoặc chấm công thay người khác |
+| Vai trò | Phạm vi |
+| --- | --- |
+| **Admin** | Duyệt đăng ký công ty, xem danh sách công ty và quản lý quyền truy cập tài khoản trên toàn hệ thống. |
+| **Manager** | Phân ca, quản lý nhân sự, xem bảng công và thiết lập vai trò, mức lương trong công ty mình quản lý. |
+| **Staff chính thức** | Xem lịch được giao, chấm công, nhập chi phí phát sinh, xem thông báo và thu nhập cá nhân. |
+| **Freelance** | Có cùng quyền làm ca và xem thông tin cá nhân như Staff chính thức. |
 
-Vai trò **Admin** được lấy từ **Supabase Auth app_metadata**, không lấy từ trường tự khai trong giao diện. Vai trò Manager/Staff thay đổi theo công ty được chọn. Một tài khoản có thể là Manager ở công ty A và Staff ở công ty B.
-
-Lưu ý: nhánh này **giữ nguyên mô hình ba vai trò hiện có** của repository để tránh làm mất quy trình công ty/nhân sự. Nếu sản phẩm cuối chỉ cần một Admin và tất cả tài khoản còn lại là Staff, cần thiết kế lại quy trình đăng ký công ty và phân ca trước khi loại bỏ Manager.
+Supabase Auth xác định Admin qua `app_metadata.role`. Các vai trò còn lại áp dụng theo công ty được chọn. Một người có thể là Manager ở công ty A và Freelance ở công ty B. Danh sách tài khoản toàn hệ thống xếp theo vai trò cao nhất của mỗi người theo thứ tự Admin, Manager, Staff, Freelance.
 
 ## Phân loại nhân viên và nghiệp vụ tiền công
 
-Cả hai loại đều có **role Staff**. Loại hợp đồng là thuộc tính riêng theo công ty,
-chỉ **Manager** được thay đổi trong mục **Quản lý nhân sự → Thiết lập/Sửa mức lương**:
+Chỉ **Manager** của công ty được chuyển Freelance thành Staff chính thức trong **Quản lý nhân sự → Mức lương → Vai trò tại công ty**. Trong Supabase, cả hai dùng quyền làm ca `company_members.role = 'staff'`. Loại nhân sự nằm trong `member_compensation.employment_type` của từng công ty.
 
 | Loại hiển thị | Mã lưu DB | Cách tính ước tính |
 | --- | --- | --- |
-| **Nhân viên chính thức** | `employee` | Lương cơ bản/tháng + phụ cấp hàng tháng + tổng Cast của những ca đã chấm công ra |
-| **Nhân viên thời vụ** | `freelancer` | Phụ cấp hàng tháng (nếu có) + tổng Cast của những ca đã chấm công ra; không có lương cơ bản |
+| **Staff chính thức** | `employee` | Lương cơ bản/tháng + phụ cấp hàng tháng + tổng Cast của các ca đã hoàn tất |
+| **Freelance** | `freelancer` | Phụ cấp hàng tháng (nếu có) + tổng Cast của các ca đã hoàn tất |
 
-Giữ nguyên mã `freelancer` để **không chuyển đổi hoặc xóa dữ liệu cũ**. Nhân viên
-mới gia nhập mặc định được tạo bản ghi lương **thời vụ, đơn giá 0₫** cho tới khi
-Manager thiết lập mức phù hợp. Staff chỉ xem được mức lương và thu nhập ước tính
-của chính họ.
+Nhân viên mới gia nhập mặc định là **Freelance**. Staff và Freelance chỉ xem được mức lương và thu nhập ước tính của chính họ.
 
 Menu **Bảng công & lương** của Manager xem theo tháng, phân biệt ca đã phân và ca
-hoàn tất chấm công. Menu **Thu nhập** của Staff cũng có thống kê cá nhân.
+hoàn tất chấm công. Menu **Thu nhập** có thống kê cá nhân cho Staff và Freelance.
 **Các con số chỉ là ước tính theo lương cơ bản, phụ cấp tháng và Cast của ca đã hoàn tất**, không phải bảng lương,
 quyết toán hay tiền đã trả: chưa áp dụng thuế, bảo hiểm, tạm ứng, nghỉ phép,
 quy tắc làm thêm hoặc lịch sử điều chỉnh đơn giá. Lương tháng chưa được tính
 theo tỷ lệ ngày công hoặc số ngày bắt đầu hợp đồng.
 
-Tuyển nhân sự thời vụ loại những người đã gia nhập công ty hiện tại; người
-đã có thỏa thuận lương ở công ty khác không bị ảnh hưởng.
+Mục tuyển nhân sự Freelance hiển thị hồ sơ công khai của những người chưa gia nhập công ty đang chọn.
 
 ## Quy tắc phân ca
 
-- Chỉ Manager được tạo/sửa/hủy ca của Staff thuộc công ty đó. Nhấn ô ngày trống để tạo; ô có một ca để sửa; ô có nhiều ca để chọn ca. Có nút **Hủy ca** trong hộp sửa ca, với xác nhận trước khi hủy. Khi hủy thành công, Staff nhận thông báo từ database trigger.
+- Chỉ Manager được tạo, sửa hoặc hủy ca của Staff và Freelance thuộc công ty đó. Nhấn ô ngày trống để tạo ca. Nhấn ô đã có ca để mở **Quản lý ca trong ngày**, nơi có thể sửa từng ca, thêm ca mới hoặc xóa tất cả ca sau khi xác nhận. Nếu có ca đã chấm công, thao tác xóa tất cả bị chặn. Khi hủy thành công, người được phân ca nhận thông báo trong ứng dụng.
 - Một ca có ngày/giờ bắt đầu, kết thúc hợp lệ, thời lượng tối đa 24 giờ. Ca qua nửa đêm được hỗ trợ và hiển thị trên cả hai ngày.
 - Một nhân viên không được có hai ca trùng khoảng thời gian, **kể cả ở hai công ty khác nhau**. Kiểm tra UI giúp thông báo sớm; trigger database mới là nguồn kiểm tra cuối cùng. Hai ca kết thúc/bắt đầu đúng cùng một thời điểm được chấp nhận.
 - `planned_attendance` vẫn chỉ là **giờ dự kiến**, tách biệt với bảng `shift_attendance` chứa thời điểm Staff thực tế chấm công vào/ra.
@@ -97,6 +91,7 @@ Với dự án mới, ưu tiên chạy **một lần** `supabase/FULL_SETUP_FROM
 7. **`supabase/shift_notifications.sql`** (thông báo tạo/sửa/hủy ca)
 8. **`supabase/shift_attendance.sql`** (chấm công vào/ra và khóa hủy ca đã chấm công)
 9. **`supabase/staff_business.sql`** (phân loại nhân sự, báo cáo lương và quy tắc phân ca)
+10. **`supabase/staff_roles.sql`** (vai trò trong danh sách tài khoản và đồng nghiệp)
 
 Nếu database đã tồn tại, hãy **sao lưu trước** và kiểm tra các migration đã áp dụng. Bạn có thể chạy script nâng cấp tổng hợp ở phần dưới hoặc các file còn thiếu theo thứ tự 6 → 7 → 8 → **9**. Chạy file mới số 8 để kích hoạt chấm công và bảo vệ ca đã chấm công. Không cần xóa dữ liệu lịch cũ. **Merge GitHub/Vercel không tự chạy SQL trên Supabase.** Trigger chỉ chặn thao tác ghi mới, không tự xóa dữ liệu lịch cũ. Nên kiểm tra trùng ca đã tồn tại trước khi triển khai:
 
@@ -151,7 +146,7 @@ Nếu cần làm mới PostgREST schema cache sau migration:
 
 ### Xem trước từng vai trò
 
-Chạy `npm run dev`, mở trang `/tests/role.html?role=admin`, `?role=manager` hoặc `?role=staff`. Đây là dữ liệu giả lập chỉ dùng kiểm tra giao diện, không thuộc bản phát hành.
+Chạy `npm run dev` và mở trang `/tests/role.html` với một trong các giá trị `?role=admin`, `?role=manager`, `?role=staff`, `?role=freelance`. Các trang này dùng dữ liệu giả lập để kiểm tra giao diện.
 
 ### Phần còn thiếu
 

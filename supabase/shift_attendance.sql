@@ -114,3 +114,53 @@ create trigger protect_attended_shifts
 
 -- Check: planned_attendance is NOT actual clock-in. Existing planned shifts
 -- should not get any rows in shift_attendance until a staff member clocks in.
+
+-- Record expenses while an assigned Staff member's attendance is open.
+alter table public.shift_attendance
+  add column if not exists expenses jsonb not null default '[]'::jsonb,
+  add column if not exists expense_total_vnd bigint not null default 0;
+
+create or replace function public.add_shift_expense(p_shift uuid, p_id uuid, p_note text, p_amount bigint)
+returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  entry public.shift_attendance;
+  expense jsonb;
+begin
+  if p_id is null or p_note is null or char_length(btrim(p_note)) not between 1 and 160
+     or p_amount is null or p_amount not between 1 and 100000000 then
+    raise exception 'Chi phí phát sinh không hợp lệ' using errcode='P4532';
+  end if;
+  select a.* into entry from public.shift_attendance a
+    where a.shift_id=p_shift and a.user_id=auth.uid()
+      and public.account_active()
+      and coalesce(auth.jwt()->'app_metadata'->>'role','') <> 'admin'
+      and exists (
+        select 1 from public.company_members m
+        where m.company_id=a.company_id and m.user_id=a.user_id and m.role='staff'
+      )
+    for update;
+  if not found then
+    raise exception 'Bạn cần chấm công cho ca của mình trước khi nhập chi phí' using errcode='P4530';
+  end if;
+  expense := jsonb_build_object('id',p_id,'note',btrim(p_note),'amount_vnd',p_amount);
+  if entry.expenses @> jsonb_build_array(expense) then
+    return to_jsonb(entry);
+  end if;
+  if entry.checked_out_at is not null then
+    raise exception 'Ca đã hoàn thành, không thể thêm chi phí' using errcode='P4531';
+  end if;
+  if entry.expenses @> jsonb_build_array(jsonb_build_object('id',p_id))
+     or jsonb_array_length(entry.expenses) >= 100 then
+    raise exception 'Khoản chi đã tồn tại hoặc đã đạt giới hạn 100 khoản' using errcode='P4532';
+  end if;
+  update public.shift_attendance a
+    set expenses=a.expenses || jsonb_build_array(expense),
+        expense_total_vnd=a.expense_total_vnd + p_amount
+    where a.shift_id=p_shift
+    returning a.* into entry;
+  return to_jsonb(entry);
+end $$;
+revoke all on function public.add_shift_expense(uuid,uuid,text,bigint) from public, anon;
+grant execute on function public.add_shift_expense(uuid,uuid,text,bigint) to authenticated;
+notify pgrst, 'reload schema';
