@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test:db": "node tests/database.mjs",
     "test:domain": "node tests/domain.mjs",
+    "test:cloudinary": "node tests/cloudinary-upload.mjs",
     "test:payroll": "node tests/payroll-domain.mjs && node tests/payroll-settlement.mjs"
   },
   "dependencies": {
