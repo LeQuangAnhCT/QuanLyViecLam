@@ -1,5 +1,14 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  nextTick,
+  defineAsyncComponent
+} from 'vue'
 import {
   localDate,
   roleLabel,
@@ -11,7 +20,6 @@ import {
   effectiveShiftEnd
 } from '../../../domain/calendar'
 import { formatWorkDuration } from '../../formatters/work-duration'
-import LocationPicker from '../../LocationPicker.vue'
 import ToastStack from '../../ToastStack.vue'
 import {
   isShiftNotification,
@@ -19,6 +27,8 @@ import {
   shiftNoticeSnapshot
 } from '../../../domain/notifications.js'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
+
+const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
 
 const props = defineProps({ user: { type: Object, required: true } })
 
@@ -36,6 +46,8 @@ const {
   compensationUnavailable,
   freelancers,
   requests,
+  supplementalLoading,
+  supplementalError,
   restriction,
   notifications,
   notificationNow,
@@ -96,9 +108,13 @@ watch(message, (text) => {
 })
 
 const seenNotificationIds = new Set(notifications.value.map((item) => item.id))
+let notificationsPrimed = w.notificationsHydrated.value
 
 watch(notifications, (items) => {
-  const incoming = items.filter((item) => !item.read_at && !seenNotificationIds.has(item.id))
+  const incoming = notificationsPrimed
+    ? items.filter((item) => !item.read_at && !seenNotificationIds.has(item.id))
+    : []
+  notificationsPrimed = true
   for (const item of items) seenNotificationIds.add(item.id)
   if (
     !loading.value &&
@@ -1123,6 +1139,12 @@ onUnmounted(() => {
           <button type="button" class="nav-sign-out" @click="repo.auth.signOut()">Đăng xuất</button>
         </nav>
         <main class="content">
+          <div v-if="supplementalError" class="alert" role="alert">
+            {{ supplementalError }}
+            <button type="button" :disabled="supplementalLoading" @click="w.refreshSupplemental()">
+              Thử lại
+            </button>
+          </div>
           <div class="page-heading">
             <div>
               <p class="eyebrow">{{ roleLabel('manager') }}</p>

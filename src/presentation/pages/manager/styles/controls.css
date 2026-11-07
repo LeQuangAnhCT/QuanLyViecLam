@@ -25,8 +25,7 @@
   cursor: not-allowed;
 }
 
-.role-manager button:focus-visible,
-.role-manager fluent-button:focus-visible {
+.role-manager button:focus-visible {
   outline: 3px solid #777;
   outline-offset: 2px;
 }

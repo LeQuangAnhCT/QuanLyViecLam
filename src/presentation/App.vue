@@ -1,27 +1,15 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { repository } from '../infrastructure/repository'
-import WorkspaceRouter from './WorkspaceRouter.vue'
+import { defineAsyncComponent, h } from 'vue'
+import { useSession } from '../application/useSession'
 
-const session = ref(undefined),
-  authError = ref('')
-let subscription
-onMounted(async () => {
-  const result = await repository.auth.getSession()
-  if (result.error) authError.value = result.error.message
-  session.value = result.data.session
-  subscription = repository.auth.onAuthStateChange((_event, value) => {
-    session.value = value
-  }).data.subscription
+const { session, authError, signingIn, login } = useSession()
+const WorkspaceRouter = defineAsyncComponent({
+  loader: () => import('./WorkspaceRouter.vue'),
+  loadingComponent: {
+    render: () => h('main', { class: 'auth-screen', role: 'status' }, 'Đang mở Shiftly...')
+  },
+  delay: 0
 })
-onUnmounted(() => subscription?.unsubscribe())
-async function login() {
-  const { error } = await repository.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: location.origin }
-  })
-  if (error) authError.value = error.message
-}
 </script>
 
 <template>
@@ -41,9 +29,9 @@ async function login() {
       </h1>
       <p>Sắp lịch, kết nối nhân sự và theo dõi giờ làm cho đội ngũ âm thanh ánh sáng.</p>
       <p v-if="authError" class="alert" role="alert">{{ authError }}</p>
-      <fluent-button appearance="accent" class="google-button" @click="login">
-        Tiếp tục với Google
-      </fluent-button>
+      <button type="button" class="google-button" :disabled="signingIn" @click="login">
+        {{ signingIn ? 'Đang mở Google...' : 'Tiếp tục với Google' }}
+      </button>
       <small>Đăng nhập để truy cập lịch làm việc của bạn.</small>
     </section>
   </main>

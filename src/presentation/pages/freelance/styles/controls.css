@@ -25,8 +25,7 @@
   cursor: not-allowed;
 }
 
-.role-freelance button:focus-visible,
-.role-freelance fluent-button:focus-visible {
+.role-freelance button:focus-visible {
   outline: 3px solid #777;
   outline-offset: 2px;
 }

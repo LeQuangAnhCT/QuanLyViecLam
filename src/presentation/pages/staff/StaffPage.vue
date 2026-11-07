@@ -1,5 +1,14 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  nextTick,
+  defineAsyncComponent
+} from 'vue'
 import {
   localDate,
   hours,
@@ -10,7 +19,6 @@ import {
 } from '../../../domain/calendar'
 import { completedShiftCast, workedMilliseconds } from '../../../domain/payroll'
 import { formatWorkDuration } from '../../formatters/work-duration'
-import LocationPicker from '../../LocationPicker.vue'
 import ToastStack from '../../ToastStack.vue'
 import {
   isShiftNotification,
@@ -18,6 +26,8 @@ import {
   shiftNoticeSnapshot
 } from '../../../domain/notifications.js'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
+
+const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
 
 const props = defineProps({ user: { type: Object, required: true } })
 
@@ -35,6 +45,8 @@ const {
   compensationUnavailable,
   applications,
   profile,
+  supplementalLoading,
+  supplementalError,
   restriction,
   workspaceRoles,
   notifications,
@@ -78,9 +90,13 @@ watch(message, (text) => {
 })
 
 const seenNotificationIds = new Set(notifications.value.map((item) => item.id))
+let notificationsPrimed = w.notificationsHydrated.value
 
 watch(notifications, (items) => {
-  const incoming = items.filter((item) => !item.read_at && !seenNotificationIds.has(item.id))
+  const incoming = notificationsPrimed
+    ? items.filter((item) => !item.read_at && !seenNotificationIds.has(item.id))
+    : []
+  notificationsPrimed = true
   for (const item of items) seenNotificationIds.add(item.id)
   if (
     !loading.value &&
@@ -598,6 +614,8 @@ async function clockAction(item, action) {
 }
 
 function saveApplication() {
+  if (busy.value || supplementalLoading.value || supplementalError.value || activeApplication.value)
+    return
   perform(
     () => repo.insert('company_applications', { ...form, applicant_id: props.user.id }),
     'Đã gửi đăng ký công ty.'
@@ -605,6 +623,7 @@ function saveApplication() {
 }
 
 function saveProfile() {
+  if (busy.value || supplementalLoading.value || supplementalError.value) return
   perform(
     () => repo.upsert('freelancer_profiles', { user_id: props.user.id, ...freelancer }),
     'Đã lưu hồ sơ freelancer.'
@@ -888,6 +907,12 @@ onUnmounted(() => {
           <button type="button" class="nav-sign-out" @click="repo.auth.signOut()">Đăng xuất</button>
         </nav>
         <main class="content">
+          <div v-if="supplementalError" class="alert" role="alert">
+            {{ supplementalError }}
+            <button type="button" :disabled="supplementalLoading" @click="w.refreshSupplemental()">
+              Thử lại
+            </button>
+          </div>
           <div class="page-heading">
             <div>
               <p class="eyebrow">{{ roleLabel('staff') }}</p>
@@ -1450,7 +1475,8 @@ onUnmounted(() => {
             </section>
             <section class="surface section">
               <h2>Hồ sơ việc làm Freelance</h2>
-              <form class="form" @submit.prevent="saveProfile">
+              <p v-if="supplementalLoading" role="status">Đang tải hồ sơ việc làm...</p>
+              <form v-else-if="!supplementalError" class="form" @submit.prevent="saveProfile">
                 <label>
                   Tên hiển thị
                   <input v-model="freelancer.display_name" required minlength="2" maxlength="100" />
@@ -1485,7 +1511,12 @@ onUnmounted(() => {
                   : 'Thông tin sẽ được gửi quản trị viên duyệt. Sau khi duyệt bạn là quản lý công ty.'
               }}
             </p>
-            <form v-if="!activeApplication" class="form" @submit.prevent="saveApplication">
+            <p v-if="supplementalLoading" role="status">Đang tải thông tin đăng ký...</p>
+            <form
+              v-else-if="!supplementalError && !activeApplication"
+              class="form"
+              @submit.prevent="saveApplication"
+            >
               <label>
                 Tên công ty
                 <input

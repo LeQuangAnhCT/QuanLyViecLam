@@ -66,18 +66,28 @@
   display: block;
   width: 100%;
   margin-top: 28px;
-  --accent-fill-rest: #242424;
-  --accent-fill-hover: #444;
-  --neutral-foreground-on-accent-rest: #fff;
-}
-
-.auth-box fluent-button::part(control) {
-  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 16px;
   min-height: 44px;
+  border: 1px solid #242424;
   border-radius: 6px;
+  background: #242424;
+  color: #fff;
+  cursor: pointer;
 }
 
-.auth-box fluent-button:focus-visible {
+.google-button:hover {
+  background: #444;
+}
+
+.google-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.google-button:focus-visible {
   outline: 3px solid #777;
   outline-offset: 2px;
 }

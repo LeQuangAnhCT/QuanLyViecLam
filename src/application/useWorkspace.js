@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onScopeDispose } from 'vue'
 import { preferredCompanyId, workerRole } from '../domain/calendar.js'
 import { legacyPayrollRows } from '../domain/payroll.js'
 import { noticeHasExpired } from '../domain/notifications.js'
@@ -31,7 +31,34 @@ export function useWorkspace(user) {
   const activeRole = ref(isAdmin ? 'admin' : '')
   const companyLoading = ref(false),
     companyError = ref('')
+  const supplementalLoading = ref(false),
+    supplementalError = ref('')
+  let supplementalRequest = 0
+  async function refreshSupplemental() {
+    if (isAdmin) return
+    const request = ++supplementalRequest
+    supplementalLoading.value = true
+    supplementalError.value = ''
+    const results = await Promise.allSettled([
+      repo.invitations(),
+      repo.applications(),
+      repo.profile(user.id)
+    ])
+    if (request !== supplementalRequest) return
+    if (results[0].status === 'fulfilled') {
+      invitations.value = (results[0].value || []).filter(
+        (invitation) => invitation.email?.toLowerCase() === user.email?.toLowerCase()
+      )
+    }
+    if (results[1].status === 'fulfilled') applications.value = results[1].value || []
+    if (results[2].status === 'fulfilled') profile.value = results[2].value
+    supplementalError.value = results.some((result) => result.status === 'rejected')
+      ? 'Chưa tải được đầy đủ lời mời và hồ sơ việc làm. Vui lòng thử lại.'
+      : ''
+    supplementalLoading.value = false
+  }
   const companyNotifications = ref([]),
+    notificationsHydrated = ref(false),
     notificationsLoading = ref(false),
     notificationsError = ref('')
   const notificationNow = ref(Date.now())
@@ -106,6 +133,7 @@ export function useWorkspace(user) {
     try {
       const rows = await (isAdmin ? repo.applications() : repo.notifications(user.id))
       if (request !== notificationRequest) return
+      notificationsHydrated.value = true
       if (isAdmin) applications.value = rows || []
       else companyNotifications.value = rows || []
       notificationsError.value = ''
@@ -145,6 +173,7 @@ export function useWorkspace(user) {
     { flush: 'sync' }
   )
   async function refresh() {
+    const initial = loading.value
     restriction.value = await repo.restriction(user.id)
     if (restriction.value?.disabled) return
     if (isAdmin) {
@@ -161,32 +190,23 @@ export function useWorkspace(user) {
       if (failed) throw failed.reason
       return
     }
-    const [all, memberships, invites, apps, own] = await Promise.all([
-      repo.companies(),
-      repo.memberships(user.id),
-      repo.invitations(),
-      repo.applications(),
-      repo.profile(user.id)
-    ])
+    const [all, memberships] = await Promise.all([repo.companies(), repo.memberships(user.id)])
     directory.value = all || []
     companies.value = directory.value
       .map((c) => ({ ...c, role: memberships?.find((m) => m.company_id === c.id)?.role }))
       .filter((c) => isAdmin || c.role)
     companyId.value = preferredCompanyId(companies.value, companyId.value)
-    invitations.value = (invites || []).filter(
-      (i) => i.email.toLowerCase() === user.email?.toLowerCase()
-    )
-    applications.value = apps || []
-    profile.value = own
-    accounts.value = isAdmin ? await repo.accounts() : []
+    const supplemental = refreshSupplemental()
+    const notices = refreshNotifications()
     await refreshCompany()
-    await refreshNotifications()
+    if (!initial) await Promise.all([supplemental, notices])
   }
   async function refreshCompany() {
     const id = companyId.value
     const request = ++companyRequest
+    const blocking = loading.value || companyLoading.value || !activeRole.value
     companyError.value = ''
-    companyLoading.value = !!id
+    companyLoading.value = !!id && blocking
     if (!id) {
       activeRole.value = isAdmin ? 'admin' : 'freelance'
       return
@@ -237,7 +257,9 @@ export function useWorkspace(user) {
         : workerRole(compensation.value.find((pay) => pay.user_id === user.id)?.employment_type)
     } catch (failure) {
       if (request === companyRequest && id === companyId.value) {
-        companyError.value = failure?.message || 'Không tải được dữ liệu công ty.'
+        const text = failure?.message || 'Không tải được dữ liệu công ty.'
+        if (blocking) companyError.value = text
+        else error.value = text
       }
       throw failure
     } finally {
@@ -264,11 +286,19 @@ export function useWorkspace(user) {
       loading.value = false
     }
   }
+  onScopeDispose(() => {
+    supplementalRequest++
+    notificationRequest++
+    companyRequest++
+  })
   return {
     isAdmin,
     activeRole,
     companyLoading,
     companyError,
+    supplementalLoading,
+    supplementalError,
+    refreshSupplemental,
     companies,
     directory,
     invitations,
@@ -288,6 +318,7 @@ export function useWorkspace(user) {
     workspaceRoles,
     notifications,
     notificationNow,
+    notificationsHydrated,
     notificationsLoading,
     notificationsError,
     refreshNotifications,

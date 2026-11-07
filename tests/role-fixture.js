@@ -153,6 +153,16 @@ Object.assign(repo, {
   },
   upsert: async (table, value) => { if(table==='member_compensation') { const index = pay.findIndex(p=>p.company_id===value.company_id && p.user_id===value.user_id); if(index<0) pay.push(value); else pay[index]=value } }
 })
+const startupDelay = Math.min(Math.max(Number(options.get('startupDelay')) || 0, 0), 10000)
+if (startupDelay) {
+  for (const name of ['profile', 'notifications']) {
+    const original = repo[name]
+    repo[name] = async (...args) => {
+      await new Promise(resolve => setTimeout(resolve, startupDelay))
+      return original(...args)
+    }
+  }
+}
 const router = createWorkspaceRouter(createMemoryHistory())
 const app = createApp(WorkspaceRouter, { user })
 app.use(router)

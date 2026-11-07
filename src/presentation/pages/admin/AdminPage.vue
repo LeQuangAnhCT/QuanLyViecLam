@@ -1,10 +1,20 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import {
+  ref,
+  reactive,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+  nextTick,
+  defineAsyncComponent
+} from 'vue'
 import { roleLabel } from '../../../domain/calendar'
-import LocationPicker from '../../LocationPicker.vue'
 import ToastStack from '../../ToastStack.vue'
-import provinces from '../../../data/vietnam-locations.json'
+import provinces from '../../../data/vietnam-provinces.json'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
+
+const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
 
 const props = defineProps({ user: { type: Object, required: true } })
 
