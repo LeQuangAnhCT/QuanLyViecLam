@@ -1,4 +1,32 @@
 export const localDate = (date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+// Work shifts are scheduled in Vietnam wall-clock time, independent of the device timezone.
+// Supabase timestamptz correctly stores the equivalent instant in UTC.
+const vietnamDateFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+})
+const vietnamTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+})
+const dateTimeParts = (formatter, stamp) =>
+  Object.fromEntries(formatter.formatToParts(new Date(stamp)).map(({ type, value }) => [type, value]))
+
+export function vietnamDate(stamp) {
+  const { year, month, day } = dateTimeParts(vietnamDateFormatter, stamp)
+  return `${year}-${month}-${day}`
+}
+export function vietnamTime(stamp) {
+  const { hour, minute } = dateTimeParts(vietnamTimeFormatter, stamp)
+  return `${hour}:${minute}`
+}
+export function vietnamDateTime(date, time) {
+  // Vietnam uses UTC+07:00 year-round. Never parse a shift in the browser timezone.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time))
+    return new Date(NaN)
+  const stamp = new Date(`${date}T${time}:00+07:00`)
+  if (!Number.isFinite(stamp.getTime()) || vietnamDate(stamp) !== date || vietnamTime(stamp) !== time)
+    return new Date(NaN)
+  return stamp
+}
 export const hours = (shift) => ((new Date(shift.ends_at) - new Date(shift.starts_at)) / 3600000).toFixed(2)
 export const effectiveShiftEnd = (shift, attendance) =>
   Date.parse(attendance?.checked_out_at) > Date.parse(shift.ends_at) ? attendance.checked_out_at : shift.ends_at
@@ -31,8 +59,8 @@ export function shiftRows(values, companyId, existingShifts = []) {
   if (!companyId) throw new Error('Hãy chọn công ty trước khi phân ca.')
   if (!users.length) throw new Error('Hãy chọn ít nhất một nhân viên.')
   if (!values.date || !values.start || !values.end) throw new Error('Hãy nhập đầy đủ ngày và giờ làm.')
-  const start = new Date(`${values.date}T${values.start}`)
-  const end = new Date(`${values.end_date || values.date}T${values.end}`)
+  const start = vietnamDateTime(values.date, values.start)
+  const end = vietnamDateTime(values.end_date || values.date, values.end)
   const duration = end - start
   if (!Number.isFinite(duration) || duration <= 0) throw new Error('Thời gian kết thúc phải sau thời gian bắt đầu.')
   if (duration > 24 * 3600000) throw new Error('Một ca không được dài hơn 24 giờ. Hãy chia thành nhiều ca.')
