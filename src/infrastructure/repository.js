@@ -14,10 +14,39 @@ export const repository = {
   auth: supabase.auth,
   accountProfile: id => data(supabase.from('profiles').select('id,full_name,birth_date,hometown,active_location,avatar_url').eq('id',id).maybeSingle()),
   saveAccountProfile: (id, values) => data(supabase.from('profiles').upsert({id,...values},{onConflict:'id'}).select().single()),
-  async uploadAvatar(id, file) {
-    const path = `${id}/avatar-${Date.now()}.${file.name.split('.').pop()?.toLowerCase() || 'jpg'}`
-    await data(supabase.storage.from('avatars').upload(path,file,{contentType:file.type,upsert:false}))
-    return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+  async uploadAvatar(_id, file) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file?.type) ||
+        file.size > 2 * 1024 * 1024 || file.size === 0) {
+      throw new Error('Ảnh phải là JPG, PNG hoặc WebP và không quá 2 MB.')
+    }
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    const token = sessionData?.session?.access_token
+    if (sessionError || !token) throw new Error('Vui lòng đăng nhập lại trước khi tải ảnh.')
+
+    const image = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Không thể đọc ảnh đã chọn.'))
+      reader.onload = () => resolve(reader.result)
+      reader.readAsDataURL(file)
+    })
+    let response
+    try {
+      response = await fetch('/api/avatar-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ image })
+      })
+    } catch {
+      throw new Error('Không thể kết nối máy chủ tải ảnh. Vui lòng thử lại.')
+    }
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok || typeof result.avatar_url !== 'string') {
+      throw new Error(result.error || 'Không thể tải ảnh lên Cloudinary.')
+    }
+    return result.avatar_url
   },
   restriction: id => data(supabase.from('account_restrictions').select('disabled,reason').eq('user_id', id).maybeSingle()),
   companies: () => data(supabase.from('companies').select('id,name,address,phone,contact_email').order('name')),
