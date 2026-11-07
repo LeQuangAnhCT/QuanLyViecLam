@@ -2,7 +2,7 @@
 -- Role notices are written atomically with the Manager's compensation change.
 alter table public.shift_notifications drop constraint if exists shift_notifications_event_check;
 alter table public.shift_notifications add constraint shift_notifications_event_check
-  check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request','employment_changed'));
+  check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request','employment_changed','payroll_paid'));
 
 create schema if not exists shiftly_private;
 

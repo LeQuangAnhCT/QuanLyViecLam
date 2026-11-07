@@ -19,7 +19,6 @@ import {
   ShiftOverlapError,
   effectiveShiftEnd
 } from '../../../domain/calendar'
-import { formatWorkDuration } from '../../formatters/work-duration'
 import ToastStack from '../../ToastStack.vue'
 import {
   isShiftNotification,
@@ -27,6 +26,13 @@ import {
   shiftNoticeSnapshot
 } from '../../../domain/notifications.js'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
+
+const PayrollPanel = defineAsyncComponent(() => import('./components/PayrollPanel.vue'))
+
+const PaymentReceiptDialog = defineAsyncComponent(
+  () => import('../../components/PaymentReceiptDialog.vue')
+)
+const paymentNoticeId = ref('')
 
 const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
 
@@ -54,9 +60,6 @@ const {
   notificationsLoading,
   notificationsError,
   clockRecords,
-  payroll,
-  payrollLoading,
-  payrollError,
   busy,
   loading,
   error,
@@ -129,7 +132,8 @@ watch(notifications, (items) => {
     const item = incoming[0]
     toastStack.value?.show(item.body || item.title, {
       title: item.title,
-      action: () => openNotification(item)
+      action: () => openNotification(item),
+      actionLabel: item.event === 'payroll_paid' ? 'Xem chứng từ' : 'Xem ca'
     })
   } else {
     toastStack.value?.show(`Có ${incoming.length} thông báo mới. Mở mục Thông báo để xem chi tiết.`)
@@ -201,6 +205,14 @@ const noticeDateFormat = new Intl.DateTimeFormat('vi-VN', {
 })
 
 async function openNotification(item) {
+  if (item.event === 'payroll_paid' && item.payroll_payment_id) {
+    paymentNoticeId.value = item.payroll_payment_id
+    if (!item.read_at)
+      w.markNotificationRead(item.id).catch(() => {
+        error.value = 'Chưa thể đánh dấu đã đọc. Hãy thử mở lại thông báo.'
+      })
+    return
+  }
   const request = { ...item }
   activeNotification.value = request
   notificationReadError.value = ''
@@ -330,29 +342,6 @@ const payForm = reactive({
   monthly_allowance_vnd: 0
 })
 
-const reportMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-
-const reportMonthText = computed(() => localDate(reportMonth.value))
-
-const monthlyReportTotals = computed(() => ({
-  scheduled: payroll.value.reduce((a, row) => a + Number(row.scheduled_shifts || 0), 0),
-  completed: payroll.value.reduce((a, row) => a + Number(row.completed_shifts || 0), 0),
-  workedMs: payroll.value.reduce((total, row) => total + Number(row.worked_ms || 0), 0),
-  plannedCast: payroll.value.reduce((a, row) => a + Number(row.planned_cast_vnd || 0), 0),
-  cast: payroll.value.reduce((a, row) => a + Number(row.cast_total_vnd || 0), 0),
-  total: payroll.value.reduce((a, row) => a + Number(row.estimated_total_vnd || 0), 0)
-}))
-
-function changeReportMonth(delta) {
-  reportMonth.value = new Date(
-    reportMonth.value.getFullYear(),
-    reportMonth.value.getMonth() + delta,
-    1
-  )
-}
-
-const employmentLabel = (type) => roleLabel(workerRole(type))
-
 const profileRoleLabel = roleLabel('manager')
 
 const selectableCompanies = computed(() => companies.value)
@@ -416,6 +405,7 @@ const notificationEventLabel = (event) =>
     updated: 'Thay đổi lịch',
     cancelled: 'Ca đã hủy',
     employment_changed: 'Đổi vai trò',
+    payroll_paid: 'Đã nhận lương',
     attendance_in: 'Chấm công vào',
     attendance_out: 'Chấm công ra',
     join_request: 'Yêu cầu gia nhập'
@@ -960,15 +950,6 @@ watch(tabs, (available) => {
 
 watch(tab, (next) => {
   if (next === 'notifications') w.refreshNotifications()
-  if (next === 'payroll') w.refreshPayroll(reportMonthText.value)
-})
-
-watch(reportMonth, () => {
-  if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value)
-})
-
-watch(companyId, () => {
-  if (tab.value === 'payroll') w.refreshPayroll(reportMonthText.value)
 })
 
 onMounted(() => {
@@ -1006,6 +987,11 @@ onUnmounted(() => {
 <template>
   <div class="role-page role-manager">
     <ToastStack ref="toastStack" />
+    <PaymentReceiptDialog
+      v-if="paymentNoticeId"
+      :payment-id="paymentNoticeId"
+      @close="paymentNoticeId = ''"
+    />
     <dialog
       ref="notificationDialog"
       class="shift-notice-dialog"
@@ -1492,114 +1478,7 @@ onUnmounted(() => {
               </button>
             </nav>
           </section>
-          <section v-if="tab === 'payroll'" class="surface section payroll-section">
-            <div class="section-title">
-              <div>
-                <h2>Bảng công & lương ước tính</h2>
-                <p>Cast dự kiến gồm mọi ca đã phân. Cast hoàn tất chỉ tính ca đã chấm công ra.</p>
-              </div>
-              <div class="button-group payroll-month-controls">
-                <button type="button" aria-label="Tháng trước" @click="changeReportMonth(-1)">
-                  ‹
-                </button>
-                <b>
-                  {{ reportMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }) }}
-                </b>
-                <button type="button" aria-label="Tháng sau" @click="changeReportMonth(1)">
-                  ›
-                </button>
-                <button
-                  type="button"
-                  :disabled="payrollLoading"
-                  @click="w.refreshPayroll(reportMonthText)"
-                >
-                  Làm mới
-                </button>
-              </div>
-            </div>
-            <div v-if="payrollError" class="alert" role="alert">{{ payrollError }}</div>
-            <div v-else-if="payrollLoading" class="empty" role="status">
-              Đang tải bảng công & lương...
-            </div>
-            <template v-else>
-              <div class="payroll-summary">
-                <div>
-                  <span>Cast dự kiến</span>
-                  <strong>{{ money(monthlyReportTotals.plannedCast) }}</strong>
-                  <small>{{ monthlyReportTotals.scheduled }} ca đã phân</small>
-                </div>
-                <div>
-                  <span>Cast hoàn tất</span>
-                  <strong>{{ money(monthlyReportTotals.cast) }}</strong>
-                  <small>
-                    {{ monthlyReportTotals.completed }} ca ·
-                    {{ formatWorkDuration(monthlyReportTotals.workedMs) }} làm việc
-                  </small>
-                </div>
-                <div>
-                  <span>Chi phí ước tính</span>
-                  <strong>{{ money(monthlyReportTotals.total) }}</strong>
-                  <small>Lương + phụ cấp + Cast hoàn tất</small>
-                </div>
-              </div>
-              <div v-if="!payroll.length" class="empty">Công ty chưa có nhân sự để tính lương.</div>
-              <div
-                v-else
-                class="payroll-table-wrap"
-                role="region"
-                aria-label="Chi tiết bảng công và lương theo nhân viên"
-                tabindex="0"
-              >
-                <table class="payroll-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Nhân viên</th>
-                      <th scope="col">Cast dự kiến</th>
-                      <th scope="col">Cast hoàn tất</th>
-                      <th scope="col">Giờ thực tế</th>
-                      <th scope="col">Lương tháng</th>
-                      <th scope="col">Phụ cấp/tháng</th>
-                      <th scope="col">Ước tính</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="person in payroll" :key="person.user_id">
-                      <th scope="row">
-                        <b>{{ person.full_name }}</b>
-                        <small>
-                          {{ employmentLabel(person.employment_type) }} · {{ person.email }}
-                        </small>
-                      </th>
-                      <td>
-                        {{ money(person.planned_cast_vnd) }}
-                        <small>{{ person.scheduled_shifts }} ca đã phân</small>
-                      </td>
-                      <td>
-                        {{ money(person.cast_total_vnd) }}
-                        <small>{{ person.completed_shifts }} ca hoàn tất</small>
-                      </td>
-                      <td>{{ formatWorkDuration(person.worked_ms) }}</td>
-                      <td>
-                        {{
-                          person.employment_type === 'employee'
-                            ? money(person.monthly_base_vnd)
-                            : 'Không áp dụng'
-                        }}
-                      </td>
-                      <td>{{ money(person.monthly_allowance_vnd) }}</td>
-                      <td>
-                        <b>{{ money(person.estimated_total_vnd) }}</b>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </template>
-            <p class="payroll-disclaimer">
-              Đây là bản xem trước, không phải phiếu lương hoặc bằng chứng đã thanh toán. Thay đổi
-              mức lương hiện tại có thể làm thay đổi ước tính của các tháng trước.
-            </p>
-          </section>
+          <PayrollPanel v-if="tab === 'payroll'" />
           <section v-if="tab === 'people'" class="surface section people-section">
             <div class="section-title">
               <div>

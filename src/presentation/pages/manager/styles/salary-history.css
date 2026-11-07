@@ -1,0 +1,78 @@
+.role-manager .salary-history-intro h3 {
+  margin: 0 0 7px;
+  font-size: 17px;
+}
+.role-manager .salary-history-intro p {
+  font-size: 13px;
+  margin: 0 0 22px;
+}
+.role-manager .salary-history-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.role-manager .salary-history-list li {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) minmax(140px, 1fr) auto auto;
+  align-items: center;
+  gap: 20px;
+  padding: 19px 0;
+  border-bottom: 1px solid #e7e7e5;
+}
+.role-manager .salary-history-list li:last-child {
+  border-bottom: 0;
+}
+.role-manager .salary-history-list li > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.role-manager .salary-history-list b {
+  font-size: 14px;
+}
+.role-manager .salary-history-list strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: #205a42;
+}
+.role-manager .salary-history-list span,
+.role-manager .salary-history-list small {
+  font-size: 12px;
+  color: #666;
+}
+.role-manager .salary-history-list .salary-state {
+  margin: 0;
+  font-size: 10px;
+  color: #205a42;
+}
+.role-manager .salary-history-list button {
+  font-size: 12px;
+}
+.role-manager .salary-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #666;
+}
+.role-manager .salary-pagination button {
+  font-size: 12px;
+}
+@media (max-width: 767px) {
+  .role-manager .salary-history-list li {
+    grid-template-columns: 1fr auto;
+    gap: 14px 12px;
+  }
+  .role-manager .salary-history-list .salary-state {
+    justify-self: start;
+  }
+  .role-manager .salary-history-list button {
+    justify-self: end;
+  }
+  .role-manager .salary-pagination {
+    justify-content: space-between;
+    gap: 8px;
+  }
+}

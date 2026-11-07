@@ -17,8 +17,7 @@ import {
   effectiveShiftEnd,
   shortShiftTime
 } from '../../../domain/calendar'
-import { completedShiftCast, workedMilliseconds } from '../../../domain/payroll'
-import { formatWorkDuration } from '../../formatters/work-duration'
+import { completedShiftCast } from '../../../domain/payroll'
 import ToastStack from '../../ToastStack.vue'
 import {
   isShiftNotification,
@@ -26,6 +25,13 @@ import {
   shiftNoticeSnapshot
 } from '../../../domain/notifications.js'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
+
+const IncomeView = defineAsyncComponent(() => import('./components/IncomeView.vue'))
+
+const PaymentReceiptDialog = defineAsyncComponent(
+  () => import('../../components/PaymentReceiptDialog.vue')
+)
+const paymentNoticeId = ref('')
 
 const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
 
@@ -42,7 +48,6 @@ const {
   members,
   shifts,
   compensation,
-  compensationUnavailable,
   applications,
   profile,
   supplementalLoading,
@@ -111,7 +116,8 @@ watch(notifications, (items) => {
     const item = incoming[0]
     toastStack.value?.show(item.body || item.title, {
       title: item.title,
-      action: () => openNotification(item)
+      action: () => openNotification(item),
+      actionLabel: item.event === 'payroll_paid' ? 'Xem chứng từ' : 'Xem ca'
     })
   } else {
     toastStack.value?.show(`Có ${incoming.length} thông báo mới. Mở mục Thông báo để xem chi tiết.`)
@@ -183,6 +189,14 @@ const noticeDateFormat = new Intl.DateTimeFormat('vi-VN', {
 })
 
 async function openNotification(item) {
+  if (item.event === 'payroll_paid' && item.payroll_payment_id) {
+    paymentNoticeId.value = item.payroll_payment_id
+    if (!item.read_at)
+      w.markNotificationRead(item.id).catch(() => {
+        error.value = 'Chưa thể đánh dấu đã đọc. Hãy thử mở lại thông báo.'
+      })
+    return
+  }
   const request = { ...item }
   activeNotification.value = request
   notificationReadError.value = ''
@@ -297,50 +311,6 @@ async function saveAccountProfile() {
   }
 }
 
-const reportMonth = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-
-const reportMonthText = computed(() => localDate(reportMonth.value))
-
-function changeReportMonth(delta) {
-  reportMonth.value = new Date(
-    reportMonth.value.getFullYear(),
-    reportMonth.value.getMonth() + delta,
-    1
-  )
-}
-
-const ownCompensation = computed(() => compensation.value.find((p) => p.user_id === props.user.id))
-
-const ownScheduled = computed(() =>
-  shifts.value.filter(
-    (s) => localDate(new Date(s.starts_at)).slice(0, 7) === reportMonthText.value.slice(0, 7)
-  )
-)
-
-const ownCompleted = computed(() =>
-  ownScheduled.value.filter((s) =>
-    clockRecords.value.some((a) => a.shift_id === s.id && a.checked_out_at)
-  )
-)
-
-const ownWorkedMs = computed(() =>
-  ownCompleted.value.reduce(
-    (total, shift) => total + workedMilliseconds(clockRecordFor(shift.id)),
-    0
-  )
-)
-
-const ownCastTotal = computed(() =>
-  ownCompleted.value.reduce((total, s) => total + completedShiftCast(s, clockRecordFor(s.id)), 0)
-)
-
-const ownIncomeEstimate = computed(
-  () =>
-    Number(ownCompensation.value?.monthly_base_vnd || 0) +
-    Number(ownCompensation.value?.monthly_allowance_vnd || 0) +
-    ownCastTotal.value
-)
-
 const profileRoleLabel = roleLabel('freelance')
 
 const selectableCompanies = computed(() => companies.value)
@@ -444,6 +414,7 @@ const notificationEventLabel = (event) =>
     updated: 'Thay đổi lịch',
     cancelled: 'Ca đã hủy',
     employment_changed: 'Đổi vai trò',
+    payroll_paid: 'Đã nhận lương',
     attendance_in: 'Chấm công vào',
     attendance_out: 'Chấm công ra',
     join_request: 'Yêu cầu gia nhập'
@@ -704,6 +675,11 @@ onUnmounted(() => {
 <template>
   <div class="role-page role-freelance">
     <ToastStack ref="toastStack" />
+    <PaymentReceiptDialog
+      v-if="paymentNoticeId"
+      :payment-id="paymentNoticeId"
+      @close="paymentNoticeId = ''"
+    />
     <dialog
       ref="expenseDialog"
       class="shift-notice-dialog"
@@ -1334,72 +1310,7 @@ onUnmounted(() => {
               </div>
             </div>
           </section>
-          <section v-if="tab === 'income'" class="surface section income-section">
-            <div class="section-title">
-              <div>
-                <h2>Thu nhập dự kiến của tôi</h2>
-                <p>Chỉ hiển thị thông tin lương cá nhân trong công ty đang tham gia.</p>
-              </div>
-              <div class="button-group payroll-month-controls">
-                <button type="button" @click="changeReportMonth(-1)">‹</button>
-                <b>
-                  {{ reportMonth.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' }) }}
-                </b>
-                <button type="button" @click="changeReportMonth(1)">›</button>
-              </div>
-            </div>
-            <div v-if="compensationUnavailable" class="alert" role="alert">
-              Chưa thể tải thỏa thuận lương từ Supabase.
-            </div>
-            <div v-else-if="!ownCompensation" class="empty">
-              Manager chưa thiết lập thông tin lương cho bạn.
-            </div>
-            <template v-else>
-              <div class="overview-grid payroll-kpis">
-                <div class="overview-tile">
-                  <span>Vai trò tại công ty</span>
-                  <strong class="payroll-type">{{ roleLabel('freelance') }}</strong>
-                </div>
-                <div class="overview-tile">
-                  <span>Ca đã hoàn tất</span>
-                  <strong>{{ ownCompleted.length }}/{{ ownScheduled.length }}</strong>
-                  <small>Đã xác nhận / đã phân</small>
-                </div>
-                <div class="overview-tile">
-                  <span>Giờ thực tế</span>
-                  <strong class="worked-duration">{{ formatWorkDuration(ownWorkedMs) }}</strong>
-                  <small>Từ chấm công đến hoàn thành ca</small>
-                </div>
-                <div class="overview-tile">
-                  <span>Thu nhập ước tính</span>
-                  <strong class="payroll-money">{{ money(ownIncomeEstimate) }}</strong>
-                  <small>Không phải tiền đã thanh toán</small>
-                </div>
-              </div>
-              <div class="income-rates">
-                <p v-if="ownCompensation.employment_type === 'employee'">
-                  Lương cơ bản thỏa thuận:
-                  <b>{{ money(ownCompensation.monthly_base_vnd) }}/tháng</b>
-                  .
-                </p>
-                <p>
-                  Phụ cấp hàng tháng:
-                  <b>{{ money(ownCompensation.monthly_allowance_vnd) }}/tháng</b>
-                  .
-                </p>
-                <p>
-                  Cast từ ca đã hoàn tất (gồm phát sinh):
-                  <b>{{ money(ownCastTotal) }}</b>
-                  .
-                </p>
-              </div>
-            </template>
-            <p class="payroll-disclaimer">
-              Ước tính gồm lương cơ bản, phụ cấp tháng và Cast của các ca đã xác nhận hoàn thành.
-              Giờ thực tế không đồng nghĩa tiền theo giờ. Chưa trừ thuế, bảo hiểm, tạm ứng hoặc nghỉ
-              phép.
-            </p>
-          </section>
+          <IncomeView v-if="tab === 'income'" />
           <section v-if="tab === 'people'" class="surface section people-section">
             <div class="section-title">
               <div>

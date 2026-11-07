@@ -1,6 +1,5 @@
 import { ref, computed, watch, onScopeDispose } from 'vue'
 import { preferredCompanyId, workerRole } from '../domain/calendar.js'
-import { legacyPayrollRows } from '../domain/payroll.js'
 import { noticeHasExpired } from '../domain/notifications.js'
 import { repository as repo } from '../infrastructure/repository'
 
@@ -79,45 +78,14 @@ export function useWorkspace(user) {
     return companyNotifications.value.filter(
       (item) =>
         item.user_id === user.id &&
-        companyEventsByRole[roles.get(item.company_id)]?.has(item.event) &&
+        (item.event === 'payroll_paid' ||
+          companyEventsByRole[roles.get(item.company_id)]?.has(item.event)) &&
         !noticeHasExpired(item, notificationNow.value)
     )
   })
   const clockRecords = ref([]),
     clockUnavailable = ref(false),
     clockError = ref('')
-  const payroll = ref([]),
-    payrollLoading = ref(false),
-    payrollError = ref('')
-  let payrollRequest = 0
-  async function refreshPayroll(monthDate) {
-    const request = ++payrollRequest,
-      id = companyId.value
-    payroll.value = []
-    payrollError.value = ''
-    payrollLoading.value = !!(manager.value && id)
-    if (!payrollLoading.value) return
-    try {
-      const result = (await repo.staffSummary(id, monthDate)) || []
-      if (request !== payrollRequest || id !== companyId.value) return
-      if (result.length) {
-        const [assignments, pay] = await Promise.all([
-          repo.payrollShifts(id, monthDate),
-          result.some((row) => row.monthly_allowance_vnd == null) ? repo.compensation(id) : []
-        ])
-        if (request !== payrollRequest || id !== companyId.value) return
-        payroll.value = legacyPayrollRows(result, assignments, pay)
-      }
-    } catch (e) {
-      if (request !== payrollRequest || id !== companyId.value) return
-      payroll.value = []
-      payrollError.value = ['42P01', 'PGRST202', 'PGRST205'].includes(e?.code)
-        ? 'Báo cáo chưa được cài đặt trong Supabase. Hãy chạy supabase/monthly_cast_payroll.sql.'
-        : e?.message || 'Không thể tải bảng công và lương.'
-    } finally {
-      if (request === payrollRequest && id === companyId.value) payrollLoading.value = false
-    }
-  }
   const busy = ref(false),
     loading = ref(true),
     error = ref(''),
@@ -292,6 +260,7 @@ export function useWorkspace(user) {
     companyRequest++
   })
   return {
+    userId: user.id,
     isAdmin,
     activeRole,
     companyLoading,
@@ -326,10 +295,6 @@ export function useWorkspace(user) {
     clockRecords,
     clockUnavailable,
     clockError,
-    payroll,
-    payrollLoading,
-    payrollError,
-    refreshPayroll,
     busy,
     loading,
     error,

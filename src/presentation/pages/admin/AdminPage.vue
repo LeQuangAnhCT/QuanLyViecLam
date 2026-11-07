@@ -15,6 +15,23 @@ import provinces from '../../../data/vietnam-provinces.json'
 import { useWorkspaceContext } from '../../composables/useWorkspaceContext'
 
 const LocationPicker = defineAsyncComponent(() => import('../../LocationPicker.vue'))
+const DeleteCompanyDialog = defineAsyncComponent(
+  () => import('./components/DeleteCompanyDialog.vue')
+)
+const deleteCompanyTarget = ref(null)
+
+function companyDeleted(result) {
+  adminCompanies.value = adminCompanies.value.filter((company) => company.id !== result.company_id)
+  directory.value = directory.value.filter((company) => company.id !== result.company_id)
+  deleteCompanyTarget.value = null
+  message.value = `Đã xóa công ty ${result.company_name}.`
+  w.refresh().catch(() => {})
+}
+
+function closeCompanyDeletion(deleted) {
+  deleteCompanyTarget.value = null
+  if (deleted) w.refresh().catch(() => {})
+}
 
 const props = defineProps({ user: { type: Object, required: true } })
 
@@ -572,6 +589,14 @@ onUnmounted(() => {
                 <h3>{{ company.name }}</h3>
                 <small v-if="company.contact_email">{{ company.contact_email }}</small>
                 <small v-if="company.phone">{{ company.phone }}</small>
+                <button
+                  type="button"
+                  class="company-delete-button"
+                  :disabled="busy"
+                  @click="deleteCompanyTarget = company"
+                >
+                  Xóa công ty
+                </button>
               </div>
               <dl class="company-directory-fields">
                 <div>
@@ -728,6 +753,12 @@ onUnmounted(() => {
           </section>
         </main>
       </div>
+      <DeleteCompanyDialog
+        v-if="deleteCompanyTarget"
+        :company="deleteCompanyTarget"
+        @close="closeCompanyDeletion"
+        @deleted="companyDeleted"
+      />
       <div v-if="modal" class="overlay" @click.self="modal = ''" @keydown.esc="modal = ''">
         <section
           class="dialog dialog-small"

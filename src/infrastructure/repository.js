@@ -95,7 +95,7 @@ export const repository = {
     const cutoff = shiftNoticeCutoff(Date.now())
     for (let offset = 0; ; offset += pageSize) {
       const page = await data(supabase.from('shift_notifications')
-        .select('id,user_id,company_id,shift_id,event,title,body,created_at,read_at')
+        .select('*')
         .eq('user_id', userId).or(`event.neq.created,created_at.gt.${cutoff}`)
         .order('created_at', { ascending: false }).order('id').range(offset, offset + pageSize - 1))
       rows.push(...page)

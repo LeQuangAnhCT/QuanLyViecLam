@@ -1,9 +1,8 @@
 export function formatWorkDuration(milliseconds) {
-  const totalSeconds = Number.isFinite(milliseconds) ? Math.floor(Math.max(0, milliseconds) / 1000) : 0
-  const units = [
-    [Math.floor(totalSeconds / 3600), 'giờ'],
-    [Math.floor(totalSeconds % 3600 / 60), 'phút'],
-    [totalSeconds % 60, 'giây']
-  ]
-  return units.filter(([value]) => value > 0).map(([value, unit]) => `${value} ${unit}`).join(' ') || '0 phút'
+  const duration = Number(milliseconds)
+  const totalMinutes = Number.isFinite(duration) ? Math.floor(Math.max(0, duration) / 60000) : 0
+  if (duration > 0 && duration < 60000) return 'dưới 1 phút'
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = String(totalMinutes % 60).padStart(2, '0')
+  return `${hours} giờ ${minutes} phút`
 }

@@ -4,6 +4,8 @@ import { createMemoryHistory } from 'vue-router'
 import WorkspaceRouter from '../src/presentation/WorkspaceRouter.vue'
 import { createWorkspaceRouter } from '../src/presentation/router'
 import { repository as repo } from '../src/infrastructure/repository'
+import { payrollRepository } from '../src/infrastructure/payrollRepository'
+import { installPayrollFixture } from './fixtures/payroll'
 import { localDate, workerRole } from '../src/domain/calendar.js'
 import '../src/presentation/styles/index.css'
 
@@ -153,6 +155,7 @@ Object.assign(repo, {
   },
   upsert: async (table, value) => { if(table==='member_compensation') { const index = pay.findIndex(p=>p.company_id===value.company_id && p.user_id===value.user_id); if(index<0) pay.push(value); else pay[index]=value } }
 })
+installPayrollFixture(payrollRepository, { user, role, notifications, reset: options.has('resetPayroll') })
 const startupDelay = Math.min(Math.max(Number(options.get('startupDelay')) || 0, 0), 10000)
 if (startupDelay) {
   for (const name of ['profile', 'notifications']) {

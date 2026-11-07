@@ -1,0 +1,15 @@
+# Kết toán lương và phụ cấp quá giờ
+
+- Kỳ lương theo tháng bắt đầu ca, múi giờ Asia/Ho_Chi_Minh. Hẹn trả ngày 5-10 tháng kế tiếp. Trước ngày 5 chưa ghi nhận trả; sau ngày 10 vẫn trả được và được đánh dấu trễ. Ngày chuyển khoản được phép chọn ngày đã qua trong kỳ trả, không chọn tương lai.
+- Thanh toán từng nhân viên. Manager mở bảng chốt, kiểm tra số tiền, chuyển khoản bằng thông tin ngân hàng/QR đã có, tải ảnh chuyển khoản và xác nhận. Ứng dụng ghi nhận chứng từ, không tự thực hiện giao dịch ngân hàng và không có bước tải QR.
+- Số phải trả = lương cơ bản + phụ cấp tháng + Cast ca hoàn tất + chi phí phát sinh đã chốt + phụ cấp bù quá giờ được Manager duyệt - số đã thanh toán. Khoản thanh toán đưa số còn phải trả về 0 nếu không phát sinh thêm dữ liệu sau lúc chốt. Không xóa ca, chấm công hoặc mức lương tháng kế tiếp.
+- Quá giờ là thời gian thực sự làm sau giờ kết thúc dự kiến: `max(0, checkout - max(checkin, planned_end))`. Chỉ ca đã hoàn tất được duyệt phụ cấp. Manager nhập phụ cấp theo ca; mức 0 cần ghi rõ lý do. Những ca chưa duyệt được tách riêng và phải duyệt trước khi lập bảng chốt cho người đó.
+- Giờ tính công hiển thị là tổng `ends_at - starts_at` của các ca đã xác nhận hoàn tất (`completed_shift_ms`), cộng riêng từng ca sáng/chiều và không tính ca chưa hoàn tất. Quá giờ được hiển thị riêng để duyệt bù. `worked_ms` tiếp tục giữ khoảng thời gian giữa hai lần bấm chấm công vào/ra để đối chiếu, không dùng làm giờ tính công trên bảng lương và thu nhập.
+- Bảng chốt lưu snapshot tiền và các ca quá giờ đã duyệt. Chu trình `prepared -> paid` hoặc `prepared -> cancelled`. Chỉ `paid` tính vào đã nhận và lịch sử thanh toán. Ảnh chuyển khoản bắt buộc. Tiền, người nhận và chứng từ đã trả không được sửa/xóa.
+- Mỗi nhân viên/kỳ chỉ có một bảng chốt đang mở. Đóng popup giữ lại bảng chốt để tiếp tục. Hủy bảng chốt chưa trả thì có thể lập lại và sửa phụ cấp. Ca quá giờ đã nằm trong bảng chốt đang mở hoặc đã trả bị khóa mức bù.
+- Mức lương cơ bản và phụ cấp tháng được giữ theo bảng chốt đang mở; sau lần trả đầu tiên được cố định cho kỳ đó. Ca hoàn tất hoặc phụ cấp được duyệt sau lúc chốt tạo số còn thiếu và có thể trả bổ sung, không sửa lịch sử đã nhận.
+- Chốt và xác nhận dùng khóa giao dịch theo công ty/người/kỳ, kiểm tra số đã trả trước đó và UUID chống ghi nhận trùng. Nếu phản hồi mạng bị mất, xác nhận lại cùng UUID trả về khoản đã lưu.
+- Ảnh tối đa 8 MiB, JPEG/PNG/WebP, lưu bucket riêng tư. Chỉ Manager hiện tại của công ty và người được trả xem chứng từ đã trả; người khác và Admin hệ thống không được xem. Lịch sử của chính nhân viên được giữ khi ngừng hợp tác.
+- Chỉ Manager hiện tại được duyệt quá giờ hoặc chốt/xác nhận/hủy khoản trả. STAFF và Freelance chỉ đọc số của mình. Đọc lịch sử có phân trang; thông báo đã trả lương được giữ lại.
+
+Giữ cách tính lương cơ bản/phụ cấp theo thỏa thuận tháng hiện tại của hệ thống. Không tự tính đơn giá quá giờ hoặc suy ra phụ cấp từ luật lao động; Manager quyết định mức bù theo ca. Các ca chưa xác nhận hoàn tất chưa có Cast hoàn tất, có thể được trả bổ sung sau.

@@ -8,5 +8,6 @@
 @import './notifications.css';
 @import './toasts.css';
 @import './companies.css';
+@import './company-deletion.css';
 @import './accounts.css';
 @import './location-picker.css';

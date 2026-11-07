@@ -10,6 +10,10 @@ begin;
 drop trigger if exists on_auth_user_created on auth.users;
 
 -- Tables in dependency-safe order. CASCADE also removes dependent Shiftly views.
+drop table if exists public.payroll_overtime_allowances cascade;
+
+drop table if exists public.payroll_payments cascade;
+
 drop table if exists public.shift_attendance cascade;
 drop table if exists public.shift_notifications cascade;
 drop table if exists public.member_compensation cascade;
@@ -20,6 +24,8 @@ drop table if exists public.company_applications cascade;
 drop table if exists public.account_restrictions cascade;
 drop table if exists public.freelancer_profiles cascade;
 drop table if exists public.company_members cascade;
+
+drop table if exists public.company_deletion_log cascade;
 drop table if exists public.companies cascade;
 drop table if exists public.shifts cascade;
 drop table if exists public.profiles cascade;
