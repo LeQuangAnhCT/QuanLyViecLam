@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { noticeHasExpired, noticeIsPast, shiftNoticeSnapshot } from '../src/domain/notifications.js'
-import { effectiveShiftEnd, shortShiftTime } from '../src/domain/calendar.js'
+import { effectiveShiftEnd, shortShiftTime, vietnamDate, vietnamTime, vietnamDateTime } from '../src/domain/calendar.js'
 import { legacyPayrollRows } from '../src/domain/payroll.js'
 import { hours, shiftRows, roleLabel, workerRole, preferredCompanyId, shiftUpdate, shiftEditPlan, sameWorkSlot, ShiftOverlapError } from '../src/domain/calendar.js'
 
@@ -9,6 +9,26 @@ const rows = shiftRows(input, 'company')
 assert.equal(rows.length, 2)
 assert.equal(rows[0].title, 'Lắp sân khấu')
 assert.equal(hours(rows[0]), '4.00')
+assert.equal(rows[0].starts_at, '2026-11-05T01:00:00.000Z')
+assert.equal(rows[0].ends_at, '2026-11-05T05:00:00.000Z')
+assert.equal(vietnamDate(rows[0].starts_at), '2026-11-05')
+assert.equal(vietnamTime(rows[0].starts_at), '08:00')
+assert.equal(vietnamDateTime('2026-11-07', '08:00').toISOString(), '2026-11-07T01:00:00.000Z')
+assert.equal(vietnamDate('2026-11-07T17:30:00Z'), '2026-11-08')
+assert.equal(vietnamTime('2026-11-07T17:30:00Z'), '00:30')
+assert.ok(Number.isNaN(vietnamDateTime('2026-02-31', '08:00').getTime()))
+// The same input must yield identical instants on Vietnam, UTC and overseas devices.
+const priorTimezone = process.env.TZ
+for (const timezone of ['Asia/Ho_Chi_Minh', 'UTC', 'America/Los_Angeles']) {
+  process.env.TZ = timezone
+  assert.equal(shiftRows(input, 'company')[0].starts_at, '2026-11-05T01:00:00.000Z')
+  assert.equal(shiftRows(input, 'company')[0].ends_at, '2026-11-05T05:00:00.000Z')
+  const [overnight] = shiftRows({ ...input, date:'2026-11-07', end_date:'2026-11-08', start:'22:00', end:'02:00' }, 'company')
+  assert.equal(overnight.starts_at, '2026-11-07T15:00:00.000Z')
+  assert.equal(overnight.ends_at, '2026-11-07T19:00:00.000Z')
+}
+if (priorTimezone == null) delete process.env.TZ
+else process.env.TZ = priorTimezone
 assert.equal(roleLabel('admin'), 'Quản trị hệ thống')
 assert.equal(roleLabel('manager'), 'Manager')
 assert.equal(roleLabel(workerRole('employee')), 'STAFF')
