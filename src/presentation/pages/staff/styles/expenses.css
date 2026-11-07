@@ -1,0 +1,40 @@
+.role-staff .expense-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px 0;
+  border-block: 1px solid var(--border);
+}
+
+.role-staff .expense-summary dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.role-staff .expense-summary dd {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.role-staff .expense-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.role-staff .expense-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.role-staff .expense-list strong {
+  white-space: nowrap;
+}

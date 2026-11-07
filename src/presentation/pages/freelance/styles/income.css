@@ -1,0 +1,382 @@
+.role-freelance .income-workspace {
+  min-width: 0;
+}
+.role-freelance .income-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+}
+.role-freelance .income-heading h2 {
+  font-size: 20px;
+  margin: 0 0 7px;
+}
+.role-freelance .income-heading p {
+  font-size: 13px;
+  margin: 0;
+  max-width: 570px;
+}
+.role-freelance .income-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.role-freelance .income-controls input {
+  font: inherit;
+  width: 160px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.role-freelance .income-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  margin: 23px 0;
+}
+.role-freelance .income-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 12px 15px;
+  font-size: 13px;
+  color: #666;
+}
+.role-freelance .income-tabs button[aria-current='page'] {
+  color: #202020;
+  border-bottom-color: #202020;
+  font-weight: 700;
+}
+.role-freelance .income-period-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 17px;
+}
+.role-freelance .income-period-line h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.role-freelance .income-payment-state {
+  color: #555;
+  background: #f0f0ef;
+  padding: 5px 8px;
+  font-size: 11px;
+  border: 1px solid #e0e0dd;
+  border-radius: 5px;
+}
+.role-freelance .income-state-paid {
+  color: #205a42;
+  background: #edf5f0;
+  border-color: #cee0d5;
+}
+.role-freelance .income-balances {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.role-freelance .income-balances > div {
+  padding: 23px;
+  display: grid;
+  gap: 8px;
+}
+.role-freelance .income-balances span {
+  color: #555;
+  font-size: 13px;
+}
+.role-freelance .income-balances strong {
+  font-size: clamp(24px, 2.5vw, 34px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+.role-freelance .income-balances small {
+  color: #666;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.role-freelance .income-paid {
+  border-left: 1px solid var(--border);
+  background: #f2f7f4;
+}
+.role-freelance .income-paid strong {
+  color: #205a42;
+}
+.role-freelance .income-work-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 18px 2px;
+  font-size: 12px;
+  color: #666;
+}
+.role-freelance .income-work-facts b {
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+.role-freelance .income-work-facts button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #333;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 12px;
+}
+.role-freelance .income-calculation {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 40px;
+  padding: 26px 0;
+  border-top: 1px solid var(--border);
+}
+.role-freelance .income-calculation h3 {
+  font-size: 16px;
+  margin: 0 0 9px;
+}
+.role-freelance .income-calculation p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+  max-width: 340px;
+}
+.role-freelance .income-calculation dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  font-size: 13px;
+}
+.role-freelance .income-calculation dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.role-freelance .income-calculation dt {
+  color: #666;
+}
+.role-freelance .income-calculation dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.role-freelance .income-calculation-total {
+  border-top: 1px solid var(--border);
+  padding-top: 15px;
+  font-weight: 700;
+}
+.role-freelance .income-calculation-total dt {
+  color: #333;
+}
+.role-freelance .income-fixed-note {
+  color: #405c4c;
+}
+.role-freelance .income-pending-note {
+  padding: 12px 14px;
+  background: #f4f5f2;
+  border: 1px solid #dce0d7;
+  border-radius: 8px;
+  color: #485143;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.role-freelance .income-footnote {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 5px 0 0;
+}
+.role-freelance .income-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 44px 16px;
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+}
+.role-freelance .income-empty h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+.role-freelance .income-empty p {
+  margin: 0;
+  max-width: 450px;
+}
+.role-freelance .income-overtime h3,
+.role-freelance .income-history > h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.role-freelance .income-overtime > p,
+.role-freelance .income-history > p {
+  font-size: 13px;
+}
+.role-freelance .income-overtime-row {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr 1fr;
+  align-items: center;
+  gap: 25px;
+  padding: 20px 0;
+  border-bottom: 1px solid #e7e7e5;
+}
+.role-freelance .income-overtime-row:last-child {
+  border-bottom: 0;
+}
+.role-freelance .income-overtime-row > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.role-freelance .income-overtime-row b {
+  font-size: 14px;
+}
+.role-freelance .income-overtime-row strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.role-freelance .income-overtime-row span {
+  font-size: 12px;
+  color: #666;
+}
+.role-freelance .income-overtime-row small {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.role-freelance .income-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.role-freelance .income-history-list li {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid #e7e7e5;
+}
+.role-freelance .income-history-list li:last-child {
+  border-bottom: 0;
+}
+.role-freelance .income-history-list li > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.role-freelance .income-history-list b {
+  font-size: 14px;
+}
+.role-freelance .income-history-list span,
+.role-freelance .income-history-list small {
+  font-size: 12px;
+  color: #666;
+}
+.role-freelance .income-history-list strong {
+  font-size: 19px;
+  color: #205a42;
+  font-variant-numeric: tabular-nums;
+}
+.role-freelance .income-history-list button {
+  font-size: 12px;
+}
+.role-freelance .income-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #666;
+}
+.role-freelance .income-pagination button {
+  font-size: 12px;
+}
+.role-freelance .income-skeleton {
+  display: grid;
+  gap: 16px;
+  padding: 12px 0;
+  color: #666;
+  font-size: 13px;
+}
+.role-freelance .income-skeleton i {
+  display: block;
+  height: 95px;
+  background: #f0f0ee;
+  border-radius: 8px;
+}
+.role-freelance .income-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .role-freelance .income-heading {
+    flex-direction: column;
+  }
+}
+@media (max-width: 767px) {
+  .role-freelance .income-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .role-freelance .income-controls input {
+    flex: 1;
+    width: 120px;
+  }
+  .role-freelance .income-tabs button {
+    padding: 11px 12px;
+  }
+  .role-freelance .income-balances,
+  .role-freelance .income-calculation {
+    grid-template-columns: 1fr;
+  }
+  .role-freelance .income-balances > div {
+    padding: 18px;
+  }
+  .role-freelance .income-paid {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .role-freelance .income-calculation {
+    gap: 20px;
+  }
+  .role-freelance .income-overtime-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .role-freelance .income-overtime-row > div:first-child {
+    grid-column: 1/-1;
+  }
+  .role-freelance .income-history-list li {
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+  }
+  .role-freelance .income-history-list button {
+    grid-column: 1/-1;
+    justify-self: start;
+  }
+  .role-freelance .income-pagination {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .role-freelance .income-payment-state {
+    text-align: right;
+  }
+}

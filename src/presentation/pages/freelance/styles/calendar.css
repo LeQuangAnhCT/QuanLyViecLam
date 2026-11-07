@@ -1,0 +1,582 @@
+.role-freelance .calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.role-freelance .calendar-controls h2 {
+  font-size: 20px;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.role-freelance .calendar-controls p {
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.role-freelance .calendar-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.role-freelance .calendar {
+  min-width: 760px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.role-freelance .weekday {
+  padding: 12px;
+  color: #696969;
+  font-size: 11px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.role-freelance .day {
+  min-height: 112px;
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  min-width: 0;
+}
+
+.role-freelance .day.blank {
+  background: #f8f8f7;
+}
+
+.role-freelance .day-button {
+  border: 0;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  display: block;
+  text-align: left;
+  padding: 10px;
+  background: transparent;
+  white-space: normal;
+}
+
+.role-freelance .day-number {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+@media (max-width: 520px) {
+  .role-freelance .calendar-controls {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+.role-freelance .calendar-wrap {
+  overscroll-behavior-inline: contain;
+}
+
+.role-freelance .day-button {
+  vertical-align: top;
+}
+
+@media (max-width: 520px) {
+  .role-freelance .calendar {
+    min-width: 700px;
+  }
+}
+
+.role-freelance .calendar-wrap {
+  border-radius: 13px;
+}
+
+.role-freelance .calendar {
+  min-width: 0;
+}
+
+.role-freelance .calendar .weekday {
+  text-align: center;
+  padding: 12px 3px;
+  background: #fafafa;
+}
+
+.role-freelance .calendar .day {
+  min-height: 108px;
+  transition: background 0.12s;
+}
+
+.role-freelance .calendar .day:hover:not(.blank) {
+  background: #fafafa;
+}
+
+.role-freelance .calendar .day.active {
+  background: #efefef;
+  box-shadow: inset 0 0 0 2px #191919;
+}
+
+.role-freelance .calendar .day.active .day-number {
+  color: #111;
+}
+
+.role-freelance .calendar .day-button {
+  min-height: 108px;
+  outline-offset: -3px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.role-freelance .calendar .day-number {
+  align-self: flex-start;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.role-freelance .calendar .day-button:focus-visible {
+  outline: 2px solid #444;
+  outline-offset: -3px;
+}
+
+.role-freelance .calendar .day-button[aria-current='date'] .day-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fafafa;
+}
+
+.role-freelance .day-shift-count {
+  display: none;
+}
+
+.role-freelance .day-detail {
+  margin-top: 15px;
+}
+
+.role-freelance .day-detail .section-title {
+  align-items: center;
+  margin-bottom: 13px;
+}
+
+.role-freelance .day-detail .section-title p {
+  margin: 5px 0 0;
+}
+
+.role-freelance .day-empty {
+  padding: 23px 12px;
+}
+
+.role-freelance .shift-detail-row {
+  justify-content: flex-start;
+  gap: 20px;
+}
+
+.role-freelance .shift-timing {
+  width: 128px;
+  flex-shrink: 0;
+}
+
+.role-freelance .shift-timing strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-freelance .shift-description {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-freelance .shift-description b {
+  display: block;
+}
+
+.role-freelance .shift-description small {
+  overflow-wrap: anywhere;
+}
+
+.role-freelance .calendar-controls .button-group button {
+  min-width: 44px;
+}
+
+@media (max-width: 800px) {
+  .role-freelance .calendar {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-freelance .calendar-controls {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .role-freelance .calendar-controls h2 {
+    font-size: 16px;
+  }
+
+  .role-freelance .calendar-controls p {
+    display: none;
+  }
+
+  .role-freelance .calendar-controls .button-group {
+    gap: 4px;
+  }
+
+  .role-freelance .calendar-controls .button-group button {
+    padding: 8px 7px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .role-freelance .calendar .weekday {
+    font-size: 10px;
+    padding: 10px 0;
+  }
+
+  .role-freelance .calendar .day {
+    min-height: 56px;
+  }
+
+  .role-freelance .calendar .day-button {
+    min-height: 56px;
+    padding: 6px 2px;
+    text-align: center;
+    align-items: center;
+  }
+
+  .role-freelance .calendar .day-number {
+    align-self: center;
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .role-freelance .calendar .day-shift-count {
+    display: block;
+    margin: 4px auto 0;
+    max-width: 38px;
+    font-size: 9px;
+    line-height: 1.25;
+    color: #fff;
+    background: #252525;
+    border-radius: 5px;
+    padding: 2px 1px;
+  }
+
+  .role-freelance .calendar .day.active {
+    box-shadow: inset 0 0 0 2px #222;
+  }
+
+  .role-freelance .calendar .day.blank {
+    background: #fafafa;
+  }
+
+  .role-freelance .day-detail {
+    margin-top: 12px;
+  }
+
+  .role-freelance .day-detail .section-title {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .role-freelance .day-detail .section-title button {
+    min-height: 40px;
+  }
+
+  .role-freelance .shift-detail-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+  }
+
+  .role-freelance .shift-timing {
+    width: auto;
+    grid-column: 1 / -1;
+  }
+
+  .role-freelance .shift-description {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 360px) {
+  .role-freelance .calendar .day-button {
+    padding: 5px 0;
+  }
+
+  .role-freelance .calendar .day-number {
+    font-size: 11px;
+  }
+
+  .role-freelance .calendar .day-shift-count {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-freelance .calendar .day {
+    transition: none;
+  }
+}
+
+.role-freelance .calendar-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (min-width: 801px) {
+  .role-freelance .calendar-controls {
+    align-items: center;
+  }
+
+  .role-freelance .day-detail .section-title {
+    align-items: center;
+  }
+}
+
+@media (max-width: 800px) {
+  .role-freelance .calendar-tools {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-freelance .calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .role-freelance .calendar-controls p {
+    display: block;
+    font-size: 11px;
+  }
+
+  .role-freelance .calendar-tools {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .role-freelance .calendar-tools .button-group {
+    flex: 1;
+  }
+}
+
+.role-freelance .calendar .day:not(.blank) .day-button {
+  cursor: pointer;
+}
+
+.role-freelance .calendar .day:not(.blank):hover .day-button {
+  background: #f0f0f0;
+}
+
+.role-freelance .calendar .day:not(.blank).active .day-button {
+  background: transparent;
+}
+
+.role-freelance .calendar-controls p {
+  max-width: 420px;
+}
+
+.role-freelance .freelance-calendar-summary {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.role-freelance .freelance-calendar-summary .overview-tile {
+  min-height: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.role-freelance .freelance-calendar-summary .overview-tile + .overview-tile {
+  border-left: 1px solid var(--border);
+}
+
+.role-freelance .freelance-calendar-summary .overview-tile strong {
+  font-size: 24px;
+  margin: 3px 0 0;
+}
+
+.role-freelance .freelance-calendar-summary .overview-tile small {
+  display: none;
+}
+
+.role-freelance .freelance-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.role-freelance .freelance-calendar-layout .calendar-controls {
+  flex-wrap: wrap;
+}
+
+.role-freelance .freelance-calendar-layout .calendar .day,
+.role-freelance .freelance-calendar-layout .calendar .day:not(.blank) .day-button {
+  min-height: 52px;
+}
+
+.role-freelance .freelance-calendar-layout .calendar .day-button {
+  align-items: center;
+  text-align: center;
+  padding: 4px 1px;
+}
+
+.role-freelance .freelance-calendar-layout .calendar .day-number {
+  align-self: center;
+  margin: 0;
+}
+
+.role-freelance .freelance-calendar-layout .calendar .day-shift-count {
+  display: block;
+  margin: 0;
+  color: #414141;
+  background: none;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.role-freelance .freelance-calendar-layout .calendar .day.has-shifts:not(.active) {
+  background: #f0f0ee;
+}
+
+.role-freelance .freelance-day-detail {
+  margin-top: 0;
+}
+
+.role-freelance .freelance-day-detail h2 {
+  font-size: 19px;
+  scroll-margin-top: 14px;
+}
+
+.role-freelance .freelance-day-detail .section-title {
+  align-items: flex-start;
+}
+
+.role-freelance .freelance-day-detail .shift-detail-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 14px 0;
+}
+
+.role-freelance .freelance-day-detail .shift-timing {
+  width: auto;
+}
+
+.role-freelance .freelance-day-detail .shift-timing strong {
+  font-size: 18px;
+}
+
+.role-freelance .freelance-day-detail .shift-description {
+  grid-column: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-freelance .freelance-day-detail .shift-description b {
+  font-size: 15px;
+}
+
+.role-freelance .freelance-day-detail .clock-actions {
+  margin: 4px 0 0;
+  justify-content: space-between;
+}
+
+.role-freelance .freelance-day-detail .clock-actions button,
+.role-freelance .freelance-return-calendar {
+  min-height: 44px;
+}
+
+.role-freelance .freelance-return-calendar {
+  display: none;
+}
+
+@media (max-width: 1050px) {
+  .role-freelance .freelance-calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .role-freelance .freelance-return-calendar {
+    display: block;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-freelance .freelance-calendar-summary .overview-tile {
+    padding: 9px;
+  }
+
+  .role-freelance .freelance-calendar-summary .overview-tile strong {
+    font-size: 20px;
+  }
+
+  .role-freelance .freelance-calendar-layout .calendar-controls {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .role-freelance .freelance-day-detail .clock-actions button {
+    width: 100%;
+  }
+}
+
+.role-freelance .shift-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.role-freelance .shift-actions button {
+  min-height: 36px;
+}
+
+@media (max-width: 600px) {
+  .role-freelance .shift-actions {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .role-freelance .shift-detail-row .shift-actions {
+    grid-column: 1/-1;
+  }
+
+  .role-freelance .shift-actions button {
+    flex: 1;
+  }
+
+  .role-freelance .calendar .day:not(.blank) .day-button {
+    min-height: 56px;
+  }
+}
+
+.role-freelance .shift-actions button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .role-freelance .shift-actions .clock-locked {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}

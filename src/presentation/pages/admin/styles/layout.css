@@ -1,0 +1,344 @@
+.role-admin .app-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+}
+
+.role-admin .sidebar {
+  background: #fff;
+  border-right: 1px solid var(--border);
+  padding: 25px 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.role-admin .brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.role-admin .brand strong {
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.role-admin .brand small {
+  display: block;
+  color: #6e6e6e;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.role-admin .brand-mark {
+  width: 34px;
+  height: 34px;
+  background: #242424;
+  color: #fff;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.role-admin .side-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #777;
+  margin: 24px 10px 12px;
+  font-weight: 700;
+}
+
+.role-admin .sidebar nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.role-admin .sidebar nav button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 11px 12px;
+  color: #595959;
+  font-size: 13px;
+}
+
+.role-admin .sidebar nav button:hover,
+.role-admin .sidebar nav button.selected {
+  background: #ececeb;
+  color: #1e1e1e;
+}
+
+.role-admin .sidebar nav button.selected {
+  font-weight: 700;
+}
+
+.role-admin .main-area {
+  min-width: 0;
+}
+
+.role-admin .mobile-header {
+  display: none;
+}
+
+.role-admin .mobile-nav {
+  display: none;
+}
+
+.role-admin .content {
+  max-width: 1400px;
+  margin: auto;
+  padding: 36px 38px 70px;
+}
+
+.role-admin .page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.role-admin .page-heading h1 {
+  font-size: 28px;
+  letter-spacing: -0.035em;
+  margin: 3px 0 7px;
+}
+
+.role-admin .page-heading p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+.role-admin .page-heading .eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: #777;
+}
+
+@media (max-width: 800px) {
+  .role-admin .app-shell {
+    display: block;
+  }
+
+  .role-admin .sidebar {
+    display: none;
+  }
+
+  .role-admin .mobile-header {
+    display: block;
+    padding: 12px 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .role-admin .mobile-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 4px 12px;
+  }
+
+  .role-admin .mobile-nav button {
+    border: 0;
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .role-admin .mobile-nav button.selected {
+    background: #ececeb;
+    font-weight: 700;
+  }
+
+  .role-admin .content {
+    padding: 24px 16px 50px;
+  }
+
+  .role-admin .page-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .role-admin .page-heading h1 {
+    font-size: 24px;
+  }
+}
+
+.role-admin .mobile-nav {
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+}
+
+.role-admin .mobile-nav button {
+  flex: none;
+}
+
+.role-admin .sidebar {
+  background: #161616;
+  border-color: #2c2c2c;
+  color: #f7f7f7;
+}
+
+.role-admin .sidebar .brand-mark {
+  background: #fff;
+  color: #111;
+  border-radius: 11px;
+}
+
+.role-admin .sidebar .brand strong {
+  color: #fff;
+}
+
+.role-admin .sidebar .brand small {
+  color: #a5a5a5;
+}
+
+.role-admin .sidebar .side-label {
+  color: #aaa;
+}
+
+.role-admin .sidebar nav button {
+  color: #bcbcbc;
+  border-radius: 9px;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.role-admin .sidebar nav button:hover {
+  background: #292929;
+  color: #fff;
+}
+
+.role-admin .sidebar nav button.selected {
+  background: #fff;
+  color: #161616;
+}
+
+.role-admin .sidebar nav .nav-sign-out {
+  margin-top: auto;
+  border-top: 1px solid #353535;
+  border-radius: 0;
+}
+
+.role-admin .content {
+  max-width: 1250px;
+}
+
+.role-admin .page-heading .eyebrow {
+  color: var(--muted);
+}
+
+.role-admin .page-heading h1 {
+  font-weight: 770;
+  letter-spacing: -0.045em;
+}
+
+@media (max-width: 800px) {
+  .role-admin .main-area {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
+  .role-admin .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9;
+    display: flex;
+    gap: 5px;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    border-top: 1px solid #ddd;
+    border-bottom: 0;
+    box-shadow: 0 -4px 22px #0000000d;
+  }
+
+  .role-admin .mobile-nav button {
+    flex: 1 0 auto;
+    min-width: max-content;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 9px;
+  }
+
+  .role-admin .mobile-nav button.selected {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  .role-admin .mobile-nav .nav-sign-out {
+    border-left: 1px solid var(--border);
+  }
+
+  .role-admin .content {
+    padding-bottom: 35px;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-admin .content {
+    padding: 19px 13px 24px;
+  }
+
+  .role-admin .page-heading {
+    gap: 14px;
+    margin-bottom: 21px;
+  }
+
+  .role-admin .page-heading h1 {
+    font-size: 25px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-admin .sidebar nav button {
+    transition: none;
+  }
+}
+
+@media (min-width: 801px) {
+  .role-admin .app-shell {
+    align-items: start;
+  }
+
+  .role-admin .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #515151 #161616;
+  }
+}
+
+.role-admin .nav-unread {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  background: #e8e8e8;
+  color: #141414;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  margin-left: 6px;
+  padding: 0 6px;
+}
+
+.role-admin .sidebar nav button.selected .nav-unread,
+.role-admin .mobile-nav button.selected .nav-unread {
+  background: #2a2a2a;
+  color: #fff;
+}

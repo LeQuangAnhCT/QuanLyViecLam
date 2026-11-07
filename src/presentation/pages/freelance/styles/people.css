@@ -1,0 +1,68 @@
+.role-freelance .people-section .section-title {
+  padding-bottom: 6px;
+}
+
+.role-freelance .member-group {
+  margin-top: 18px;
+}
+
+.role-freelance .member-group h3 {
+  font-size: 12px;
+  color: #555;
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.role-freelance .member-group h3 span {
+  font-weight: 400;
+  color: #777;
+  margin-left: 4px;
+}
+
+.role-freelance .member-row {
+  padding: 14px 0;
+}
+
+.role-freelance .member-identity small {
+  overflow-wrap: anywhere;
+}
+
+.role-freelance .people-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px);
+  gap: 14px;
+  margin: 20px 0;
+}
+
+.role-freelance .people-toolbar label {
+  min-width: 0;
+}
+
+.role-freelance .member-paused {
+  opacity: 0.72;
+}
+
+.role-freelance .member-paused .badge {
+  border: 1px dashed #8e8e8e;
+  background: #f5f5f5;
+}
+
+.role-freelance .member-row .row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .role-freelance .people-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .role-freelance .member-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .role-freelance .member-row .row-actions {
+    justify-content: flex-start;
+  }
+}

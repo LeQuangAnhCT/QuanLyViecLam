@@ -1,0 +1,54 @@
+.role-freelance .company-context {
+  flex: 0 1 420px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.role-freelance .page-heading .company-options-label {
+  font-size: 12px;
+  font-weight: 650;
+  margin: 0 0 9px;
+  color: var(--muted);
+}
+
+.role-freelance .company-options-label span {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-freelance .company-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-freelance .company-choice {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 13px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.role-freelance .company-choice[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  font-weight: 650;
+}
+
+@media (max-width: 800px) {
+  .role-freelance .company-context {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-freelance .company-choice {
+    padding: 10px 12px;
+  }
+}

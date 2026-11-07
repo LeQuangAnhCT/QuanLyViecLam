@@ -1,0 +1,341 @@
+.role-manager .settlement-workspace {
+  min-width: 0;
+}
+.role-manager .settlement-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+}
+.role-manager .settlement-heading h2 {
+  margin: 0 0 7px;
+  font-size: 20px;
+}
+.role-manager .settlement-heading p {
+  margin: 0;
+  font-size: 13px;
+  max-width: 560px;
+}
+.role-manager .settlement-month-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.role-manager .settlement-month-controls input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px;
+  min-width: 0;
+  width: 160px;
+}
+.role-manager .settlement-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: 24px 0 22px;
+  overflow-x: auto;
+}
+.role-manager .settlement-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 12px 15px;
+  font-size: 13px;
+  color: #646464;
+}
+.role-manager .settlement-tabs button[aria-current='page'] {
+  border-bottom-color: #202020;
+  font-weight: 700;
+  color: #202020;
+}
+.role-manager .settlement-tabs span {
+  margin-left: 5px;
+  background: #ededeb;
+  color: #333;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+.role-manager .settlement-balances {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.role-manager .settlement-balances > div {
+  padding: 22px;
+  display: grid;
+  gap: 7px;
+}
+.role-manager .settlement-balances span {
+  font-size: 13px;
+  color: #555;
+}
+.role-manager .settlement-balances strong {
+  font-size: clamp(23px, 2.4vw, 34px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+.role-manager .settlement-balances small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.role-manager .settlement-paid {
+  border-left: 1px solid var(--border);
+  background: #f2f7f4;
+}
+.role-manager .settlement-paid strong {
+  color: #205a42;
+}
+.role-manager .settlement-work-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 25px;
+  padding: 16px 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.role-manager .settlement-work-summary b {
+  color: #333;
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.role-manager .settlement-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 5px 0 18px;
+}
+.role-manager .settlement-toolbar label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  color: #444;
+  font-weight: 600;
+  width: min(100%, 300px);
+}
+.role-manager .settlement-toolbar input {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--paper);
+  padding: 10px 12px;
+  font-weight: 400;
+  width: 100%;
+}
+.role-manager .settlement-toolbar input::placeholder {
+  color: #737373;
+}
+.role-manager .settlement-toolbar p {
+  font-size: 12px;
+  margin: 0;
+  max-width: 380px;
+}
+.role-manager .settlement-table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.role-manager .settlement-table-wrap:focus-visible {
+  outline: 3px solid #666;
+  outline-offset: 3px;
+}
+.role-manager .settlement-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.role-manager .settlement-table th,
+.role-manager .settlement-table td {
+  padding: 17px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e9e9e7;
+  vertical-align: middle;
+}
+.role-manager .settlement-table thead th {
+  padding: 13px 15px;
+  background: #f6f6f5;
+  font-size: 11px;
+  color: #555;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.role-manager .settlement-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.role-manager .settlement-table tbody th {
+  font-weight: 400;
+  min-width: 210px;
+}
+.role-manager .settlement-table tbody td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.role-manager .settlement-table small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 5px;
+}
+.role-manager .salary-person-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.role-manager .salary-person-name b {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+.role-manager .salary-person-name > span {
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #ededeb;
+  color: #444;
+  font-size: 10px;
+}
+.role-manager .salary-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  background: #f0f0ef;
+  border: 1px solid #e5e5e3;
+  border-radius: 5px;
+  color: #555;
+  font-size: 10px;
+  white-space: nowrap;
+  margin-top: 8px;
+}
+.role-manager .salary-state-paid {
+  color: #205a42;
+  background: #edf5f0;
+  border-color: #cee0d5;
+}
+.role-manager .salary-state-overdue {
+  color: #963d31;
+  background: #fff3ed;
+  border-color: #e9d3c9;
+}
+.role-manager .salary-money-paid {
+  color: #3b6350;
+}
+.role-manager .salary-money-due strong {
+  font-weight: 750;
+}
+.role-manager .salary-row-action {
+  text-align: right !important;
+}
+.role-manager .salary-row-action button {
+  font-size: 12px;
+}
+.role-manager .salary-row-done {
+  color: var(--muted);
+  font-size: 11px;
+}
+.role-manager .settlement-footnote {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 18px 0 0;
+  max-width: 850px;
+}
+.role-manager .salary-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 44px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.role-manager .salary-empty h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+.role-manager .salary-empty p {
+  margin: 0;
+  max-width: 440px;
+}
+.role-manager .settlement-skeleton {
+  display: grid;
+  gap: 16px;
+  padding: 15px 0;
+}
+.role-manager .settlement-skeleton span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.role-manager .settlement-skeleton i {
+  height: 68px;
+  border-radius: 8px;
+  background: #f0f0ef;
+  display: block;
+}
+.role-manager .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 1100px) {
+  .role-manager .settlement-heading {
+    flex-direction: column;
+  }
+}
+@media (max-width: 767px) {
+  .role-manager .settlement-month-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .role-manager .settlement-month-controls input {
+    flex: 1;
+    width: 120px;
+  }
+  .role-manager .settlement-balances {
+    grid-template-columns: 1fr;
+  }
+  .role-manager .settlement-paid {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .role-manager .settlement-balances > div {
+    padding: 18px;
+  }
+  .role-manager .settlement-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .role-manager .settlement-toolbar label {
+    width: 100%;
+  }
+  .role-manager .settlement-tabs {
+    margin-top: 18px;
+  }
+  .role-manager .settlement-tabs button {
+    padding: 11px 12px;
+  }
+  .role-manager .salary-empty {
+    padding: 32px 12px;
+  }
+}

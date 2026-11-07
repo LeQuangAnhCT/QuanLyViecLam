@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "rewrites": [
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/manager", "destination": "/index.html" },
+    { "source": "/staff", "destination": "/index.html" },
+    { "source": "/freelance", "destination": "/index.html" }
+  ]
+}

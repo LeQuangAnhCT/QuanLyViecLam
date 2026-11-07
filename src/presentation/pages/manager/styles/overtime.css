@@ -1,0 +1,149 @@
+.role-manager .overtime-intro h3 {
+  font-size: 17px;
+  margin: 0 0 7px;
+}
+.role-manager .overtime-intro p {
+  font-size: 13px;
+  margin: 0;
+  max-width: 650px;
+}
+.role-manager .overtime-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 20px 0;
+}
+.role-manager .overtime-filters button {
+  font-size: 12px;
+}
+.role-manager .overtime-filters button[aria-pressed='true'] {
+  color: #fff;
+  background: #202020;
+  border-color: #202020;
+}
+.role-manager .overtime-filters span {
+  padding-left: 5px;
+}
+.role-manager .overtime-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) minmax(150px, 1fr) minmax(130px, 0.9fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 19px 0;
+  border-bottom: 1px solid #e7e7e5;
+}
+.role-manager .overtime-row:last-of-type {
+  border-bottom: 0;
+}
+.role-manager .overtime-person,
+.role-manager .overtime-timing,
+.role-manager .overtime-result {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.role-manager .overtime-person b {
+  font-size: 14px;
+}
+.role-manager .overtime-person span {
+  font-size: 12px;
+  color: #444;
+}
+.role-manager .overtime-person small,
+.role-manager .overtime-result small {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.role-manager .overtime-timing span {
+  font-size: 11px;
+  color: #666;
+}
+.role-manager .overtime-timing strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.role-manager .overtime-result strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.role-manager .overtime-result > span {
+  font-size: 12px;
+  color: #555;
+}
+.role-manager .overtime-row > button {
+  font-size: 12px;
+}
+.role-manager .overtime-dialog {
+  width: min(500px, calc(100vw - 32px));
+  padding: 25px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--paper);
+}
+.role-manager .overtime-dialog::backdrop {
+  background: rgb(20 20 20 / 0.5);
+}
+.role-manager .overtime-dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+}
+.role-manager .overtime-dialog-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.role-manager .overtime-dialog-heading button {
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  font-size: 20px;
+}
+.role-manager .overtime-dialog > p {
+  font-size: 13px;
+  margin: 8px 0 20px;
+}
+.role-manager .overtime-form-duration {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+  background: #f5f6f4;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.role-manager .overtime-form-duration span {
+  font-size: 12px;
+  color: #555;
+}
+.role-manager .overtime-form-duration strong {
+  font-size: 25px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.role-manager .overtime-help {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+@media (max-width: 767px) {
+  .role-manager .overtime-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 15px 12px;
+    padding: 20px 0;
+  }
+  .role-manager .overtime-person {
+    grid-column: 1/-1;
+  }
+  .role-manager .overtime-row > button {
+    grid-column: 1/-1;
+    justify-self: start;
+  }
+  .role-manager .overtime-dialog {
+    padding: 20px;
+  }
+}

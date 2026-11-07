@@ -1,0 +1,68 @@
+.role-admin .company-directory-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.role-admin .company-directory-heading h2 {
+  margin: 0;
+}
+
+.role-admin .company-directory-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.role-admin .company-directory-name h3 {
+  font-size: 15px;
+  margin: 0 0 5px;
+}
+
+.role-admin .company-directory-row small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.role-admin .company-directory-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 16px;
+  margin: 0;
+}
+
+.role-admin .company-directory-fields dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.role-admin .company-directory-fields dd {
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .role-admin .company-directory-row,
+  .role-admin .company-directory-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .role-admin .company-directory-fields > div {
+    display: grid;
+    grid-template-columns: 105px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .role-admin .company-directory-fields dt {
+    margin: 0;
+  }
+}

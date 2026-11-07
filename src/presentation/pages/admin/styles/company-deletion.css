@@ -1,0 +1,113 @@
+.role-admin .company-delete-button {
+  color: #a12a24;
+  border-color: #e6cbc8;
+  background: var(--paper);
+  margin-top: 12px;
+}
+.role-admin .company-delete-button:hover {
+  background: #fff4f2;
+  border-color: #a12a24;
+}
+.role-admin .admin-company-delete-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.role-admin .admin-company-delete-dialog::backdrop {
+  background: rgb(20 20 20 / 0.5);
+}
+.role-admin .admin-company-delete-dialog header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.role-admin .admin-company-delete-dialog header p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.role-admin .admin-company-delete-dialog h2 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.role-admin .admin-company-delete-dialog header > button {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  padding: 0;
+  font-size: 22px;
+}
+.role-admin .company-delete-warning {
+  margin: 20px 0;
+  padding: 13px 15px;
+  background: #fff6f3;
+  color: #7f382c;
+  border: 1px solid #ecd7d0;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.role-admin .admin-company-delete-dialog label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.role-admin .admin-company-delete-dialog label span,
+.role-admin .admin-company-delete-dialog small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+.role-admin .admin-company-delete-dialog textarea {
+  display: block;
+  resize: vertical;
+  width: 100%;
+  padding: 12px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin-bottom: 8px;
+}
+.role-admin .admin-company-delete-dialog textarea:focus-visible {
+  outline: 2px solid #555;
+  outline-offset: 2px;
+}
+.role-admin .admin-company-delete-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.role-admin .company-delete-confirm {
+  color: #fff;
+  background: #a12a24;
+  border-color: #a12a24;
+}
+.role-admin .company-delete-confirm:hover {
+  background: #85211c;
+}
+.role-admin .company-delete-error {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #a12a24;
+  margin: 14px 0 0;
+}
+@media (max-width: 600px) {
+  .role-admin .admin-company-delete-dialog {
+    padding: 20px;
+  }
+  .role-admin .admin-company-delete-dialog h2 {
+    font-size: 19px;
+  }
+}

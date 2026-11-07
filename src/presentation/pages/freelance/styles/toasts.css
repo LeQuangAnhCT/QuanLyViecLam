@@ -1,0 +1,92 @@
+.role-freelance .toast-card .toast-open {
+  margin-top: 8px;
+  width: auto;
+  height: auto;
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.role-freelance .toast-stack {
+  position: fixed;
+  top: 84px;
+  right: 24px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 48px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.role-freelance .toast-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 12px 12px 15px;
+  box-shadow: 0 10px 26px #2020201a;
+  pointer-events: auto;
+  animation: freelance-toast-in 0.18s ease-out both;
+}
+
+.role-freelance .toast-card strong {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.role-freelance .toast-card p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.role-freelance .toast-card button {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.role-freelance .toast-error {
+  border-inline-start: 3px solid #8b2424;
+}
+
+.role-freelance .toast-error strong {
+  color: #8b2424;
+}
+
+@keyframes freelance-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 800px) {
+  .role-freelance .toast-stack {
+    top: calc(72px + env(safe-area-inset-top));
+    right: 12px;
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  .role-freelance .toast-card button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-freelance .toast-card {
+    animation: none;
+  }
+}
