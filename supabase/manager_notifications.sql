@@ -2,7 +2,7 @@
 -- Managers receive durable in-app notifications for attendance and join requests.
 alter table public.shift_notifications drop constraint if exists shift_notifications_event_check;
 alter table public.shift_notifications add constraint shift_notifications_event_check
-  check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request'));
+  check (event in ('created','updated','cancelled','attendance_in','attendance_out','join_request','employment_changed'));
 
 create or replace function public.notify_manager_activity()
 returns trigger language plpgsql security definer set search_path=public as $$

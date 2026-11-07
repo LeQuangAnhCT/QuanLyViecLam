@@ -1,0 +1,108 @@
+.role-admin .account-row label {
+  width: 240px;
+}
+
+@media (max-width: 800px) {
+  .role-admin .account-row {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .role-admin .account-row label {
+    width: 100%;
+  }
+}
+
+.role-admin .account-directory .section-title {
+  margin-bottom: 12px;
+}
+
+.role-admin .account-group + .account-group {
+  margin-top: 20px;
+}
+
+.role-admin .account-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.role-admin .account-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.role-admin .account-directory .account-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1fr) minmax(0, 2fr) auto;
+  align-items: start;
+}
+
+.role-admin .account-identity {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-admin .account-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 0.6fr) minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.role-admin .account-fields dt {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.role-admin .account-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-admin .account-actions {
+  justify-self: end;
+}
+
+.role-admin .account-directory .section-title button,
+.role-admin .account-actions button {
+  min-height: 44px;
+}
+
+@media (max-width: 1050px) {
+  .role-admin .account-directory .account-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .role-admin .account-fields {
+    grid-column: 1/-1;
+    grid-row: 2;
+  }
+
+  .role-admin .account-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .role-admin .account-fields {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .role-admin .account-fields > div {
+    display: grid;
+    grid-template-columns: minmax(106px, auto) minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .role-admin .account-fields dt {
+    margin: 0;
+  }
+}

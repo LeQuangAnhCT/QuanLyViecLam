@@ -1,0 +1,105 @@
+.role-staff input,
+.role-staff select {
+  font: inherit;
+}
+
+.role-staff input:focus-visible,
+.role-staff select:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 2px;
+}
+
+.role-staff label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: #444;
+}
+
+.role-staff input,
+.role-staff select {
+  width: 100%;
+  display: block;
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid #c8c8c6;
+  border-radius: 6px;
+  color: #222;
+  background: #fff;
+  min-height: 40px;
+}
+
+.role-staff input::placeholder {
+  color: #757575;
+}
+
+.role-staff .form {
+  display: grid;
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.role-staff .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.role-staff .form-section {
+  max-width: 760px;
+}
+
+.role-staff .check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.role-staff .check input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+
+.role-staff fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.role-staff fieldset .check {
+  margin: 9px 0;
+}
+
+.role-staff legend {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-staff .form-actions {
+  display: flex;
+  justify-content: end;
+  gap: 9px;
+}
+
+@media (max-width: 520px) {
+  .role-staff .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.role-staff .form-grid > label {
+  min-width: 0;
+}
+
+.role-staff .form-actions {
+  flex-wrap: wrap;
+}
+
+.role-staff input[type='search'] {
+  appearance: none;
+}

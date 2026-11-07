@@ -1,0 +1,93 @@
+.auth-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-box {
+  width: min(100%, 420px);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 36px;
+}
+
+.auth-box h1 {
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  margin: 44px 0 14px;
+}
+
+.auth-box p {
+  font-size: 14px;
+}
+
+.auth-box small {
+  display: block;
+  font-size: 11px;
+  color: #777;
+  margin-top: 18px;
+}
+
+.auth-box .brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.auth-box .brand strong {
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.auth-box .brand-mark {
+  width: 34px;
+  height: 34px;
+  background: #242424;
+  color: #fff;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.auth-box .alert {
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: #fff1f0;
+  color: #8b2424;
+  border: 1px solid #eabfbc;
+}
+
+.google-button {
+  display: block;
+  width: 100%;
+  margin-top: 28px;
+  --accent-fill-rest: #242424;
+  --accent-fill-hover: #444;
+  --neutral-foreground-on-accent-rest: #fff;
+}
+
+.auth-box fluent-button::part(control) {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 6px;
+}
+
+.auth-box fluent-button:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .auth-box {
+    padding: 26px;
+  }
+
+  .auth-box h1 {
+    font-size: 30px;
+  }
+}

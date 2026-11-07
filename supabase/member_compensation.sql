@@ -28,3 +28,4 @@ for all to authenticated using (
   public.account_active() and coalesce(auth.jwt()->'app_metadata'->>'role','') <> 'admin'
   and exists (select 1 from public.company_members m where m.company_id=member_compensation.company_id and m.user_id=auth.uid() and m.role='manager')
 );
+

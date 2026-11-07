@@ -2,6 +2,11 @@ export function completedShiftCast(shift, attendance) {
   return Number(shift.cast_vnd ?? 0) + Number(attendance?.expense_total_vnd ?? 0)
 }
 
+export function workedMilliseconds(attendance) {
+  const duration = Date.parse(attendance?.checked_out_at) - Date.parse(attendance?.checked_in_at)
+  return Number.isFinite(duration) ? Math.max(0, duration) : 0
+}
+
 export function legacyPayrollRows(rows, assignments, compensation) {
   const totals = new Map(rows.map(row => [row.user_id, {
     scheduled: 0, completed: 0, workedMs: 0, plannedCast: 0, completedCast: 0
@@ -18,7 +23,7 @@ export function legacyPayrollRows(rows, assignments, compensation) {
     if (attendance?.checked_out_at) {
       total.completed++
       total.completedCast += completedShiftCast(assignment, attendance)
-      total.workedMs += Date.parse(attendance.checked_out_at) - Date.parse(attendance.checked_in_at)
+      total.workedMs += workedMilliseconds(attendance)
     }
   }
 
@@ -33,6 +38,7 @@ export function legacyPayrollRows(rows, assignments, compensation) {
       monthly_allowance_vnd: allowance,
       scheduled_shifts: total.scheduled,
       completed_shifts: total.completed,
+      worked_ms: total.workedMs,
       worked_hours: Math.round(total.workedMs / 36000) / 100,
       planned_cast_vnd: total.plannedCast,
       cast_total_vnd: total.completedCast,

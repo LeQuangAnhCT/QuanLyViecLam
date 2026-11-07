@@ -17,7 +17,7 @@ export function shortShiftTime(stamp) {
   return `${period} ${day ? 'T' + day : 'CN'}, ${h}h${minute === '00' ? '' : minute}`
 }
 export const workerRole = employmentType => employmentType === 'employee' ? 'staff' : 'freelance'
-export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'Staff chính thức', freelance: 'Freelance' })[role] || 'Nhân sự'
+export const roleLabel = (role) => ({ admin: 'Quản trị hệ thống', manager: 'Manager', staff: 'STAFF', freelance: 'Freelance' })[role] || 'Nhân sự'
 
 export class ShiftOverlapError extends Error {
   constructor(shift) {
@@ -49,9 +49,8 @@ export function shiftRows(values, companyId, existingShifts = []) {
 
 // Prefer the company a person owns/manages over secondary staff memberships.
 export function preferredCompanyId(companies, previousId = '') {
-  const owned = companies.filter(c => c.role === 'manager')
-  if (owned.length) return owned.find(c => c.id === previousId)?.id || owned[0].id
-  return companies.find(c => c.id === previousId)?.id || companies[0]?.id || ''
+  return companies.find(c => c.id === previousId)?.id
+    || companies.find(c => c.role === 'manager')?.id || companies[0]?.id || ''
 }
 
 /** Validate an edit without detecting the original row as an overlap. */

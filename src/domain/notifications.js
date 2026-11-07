@@ -24,6 +24,8 @@ export function shiftNoticeSnapshot(item) {
 
 export function noticeIsPast(item, shift, now) {
   if (item.event === 'company_application') return false
-  if (item.event === 'cancelled') return true
+  if (item.event === 'cancelled' || item.event === 'employment_changed') {
+    return Date.parse(item.created_at) <= now - sevenDaysMs
+  }
   return shift ? Date.parse(shift.ends_at) <= now : Date.parse(item.created_at) <= now - sevenDaysMs
 }

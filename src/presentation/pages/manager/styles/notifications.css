@@ -1,0 +1,129 @@
+.role-manager .notifications-section .section-title {
+  align-items: center;
+}
+
+.role-manager .notification-row.unread {
+  background: #f5f5f4;
+}
+
+.role-manager .notification-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.role-manager .notification-filters,
+.role-manager .notification-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.role-manager .notification-pagination {
+  justify-content: space-between;
+  margin: 14px 0 0;
+}
+
+.role-manager .notification-filters button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.role-manager .notification-filters button span {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-manager .notification-title-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  white-space: normal;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.role-manager .notification-title-button:hover {
+  text-decoration: underline;
+  background: transparent;
+}
+
+.role-manager .notification-title-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.role-manager .notification-row .notification-title-button {
+  width: auto;
+}
+
+.role-manager .notification-head b {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.role-manager .notification-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-manager .notification-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.role-manager .notification-main p {
+  font-size: 13px;
+  margin: 9px 0 0;
+  color: #333;
+  overflow-wrap: anywhere;
+}
+
+.role-manager .notification-main small {
+  font-size: 11px;
+}
+
+.role-manager .read-label {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.role-manager .notification-row.unread .read-label {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+@media (max-width: 600px) {
+  .role-manager .notifications-section .section-title {
+    gap: 8px;
+  }
+
+  .role-manager .notification-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .role-manager .notification-row button {
+    width: 100%;
+  }
+}

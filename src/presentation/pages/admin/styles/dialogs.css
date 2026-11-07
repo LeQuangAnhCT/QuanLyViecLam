@@ -1,0 +1,54 @@
+.role-admin .overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #1b1b1bb3;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.role-admin .dialog {
+  width: min(560px, 100%);
+  max-height: 90dvh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.role-admin .dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.role-admin .dialog-heading h2 {
+  margin: 0;
+}
+
+.role-admin .dialog-heading button {
+  font-size: 20px;
+  border: 0;
+  padding: 0 7px;
+}
+
+.role-admin .dialog {
+  min-width: 0;
+}
+
+.role-admin .dialog {
+  overscroll-behavior: contain;
+}
+
+.role-admin .dialog-small {
+  width: min(420px, 100%);
+}
+
+.role-admin .dialog {
+  border-radius: 14px;
+}
+
+.role-admin .dialog .form-actions {
+  flex-wrap: wrap;
+}

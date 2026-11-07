@@ -1,0 +1,9 @@
+.role-manager .clock-locked {
+  color: #555;
+  font-size: 11px;
+  background: #eeeeee;
+  padding: 6px 9px;
+  border-radius: 7px;
+  white-space: normal;
+  max-width: 210px;
+}

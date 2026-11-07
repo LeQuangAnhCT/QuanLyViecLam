@@ -1,0 +1,344 @@
+.role-freelance .app-shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+}
+
+.role-freelance .sidebar {
+  background: #fff;
+  border-right: 1px solid var(--border);
+  padding: 25px 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.role-freelance .brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.role-freelance .brand strong {
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+
+.role-freelance .brand small {
+  display: block;
+  color: #6e6e6e;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.role-freelance .brand-mark {
+  width: 34px;
+  height: 34px;
+  background: #242424;
+  color: #fff;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.role-freelance .side-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #777;
+  margin: 24px 10px 12px;
+  font-weight: 700;
+}
+
+.role-freelance .sidebar nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.role-freelance .sidebar nav button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 11px 12px;
+  color: #595959;
+  font-size: 13px;
+}
+
+.role-freelance .sidebar nav button:hover,
+.role-freelance .sidebar nav button.selected {
+  background: #ececeb;
+  color: #1e1e1e;
+}
+
+.role-freelance .sidebar nav button.selected {
+  font-weight: 700;
+}
+
+.role-freelance .main-area {
+  min-width: 0;
+}
+
+.role-freelance .mobile-header {
+  display: none;
+}
+
+.role-freelance .mobile-nav {
+  display: none;
+}
+
+.role-freelance .content {
+  max-width: 1400px;
+  margin: auto;
+  padding: 36px 38px 70px;
+}
+
+.role-freelance .page-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.role-freelance .page-heading h1 {
+  font-size: 28px;
+  letter-spacing: -0.035em;
+  margin: 3px 0 7px;
+}
+
+.role-freelance .page-heading p {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
+.role-freelance .page-heading .eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: #777;
+}
+
+@media (max-width: 800px) {
+  .role-freelance .app-shell {
+    display: block;
+  }
+
+  .role-freelance .sidebar {
+    display: none;
+  }
+
+  .role-freelance .mobile-header {
+    display: block;
+    padding: 12px 16px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .role-freelance .mobile-nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 4px 12px;
+  }
+
+  .role-freelance .mobile-nav button {
+    border: 0;
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 10px;
+  }
+
+  .role-freelance .mobile-nav button.selected {
+    background: #ececeb;
+    font-weight: 700;
+  }
+
+  .role-freelance .content {
+    padding: 24px 16px 50px;
+  }
+
+  .role-freelance .page-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .role-freelance .page-heading h1 {
+    font-size: 24px;
+  }
+}
+
+.role-freelance .mobile-nav {
+  scrollbar-width: thin;
+  overscroll-behavior-inline: contain;
+}
+
+.role-freelance .mobile-nav button {
+  flex: none;
+}
+
+.role-freelance .sidebar {
+  background: #161616;
+  border-color: #2c2c2c;
+  color: #f7f7f7;
+}
+
+.role-freelance .sidebar .brand-mark {
+  background: #fff;
+  color: #111;
+  border-radius: 11px;
+}
+
+.role-freelance .sidebar .brand strong {
+  color: #fff;
+}
+
+.role-freelance .sidebar .brand small {
+  color: #a5a5a5;
+}
+
+.role-freelance .sidebar .side-label {
+  color: #aaa;
+}
+
+.role-freelance .sidebar nav button {
+  color: #bcbcbc;
+  border-radius: 9px;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.role-freelance .sidebar nav button:hover {
+  background: #292929;
+  color: #fff;
+}
+
+.role-freelance .sidebar nav button.selected {
+  background: #fff;
+  color: #161616;
+}
+
+.role-freelance .sidebar nav .nav-sign-out {
+  margin-top: auto;
+  border-top: 1px solid #353535;
+  border-radius: 0;
+}
+
+.role-freelance .content {
+  max-width: 1250px;
+}
+
+.role-freelance .page-heading .eyebrow {
+  color: var(--muted);
+}
+
+.role-freelance .page-heading h1 {
+  font-weight: 770;
+  letter-spacing: -0.045em;
+}
+
+@media (max-width: 800px) {
+  .role-freelance .main-area {
+    padding-bottom: calc(74px + env(safe-area-inset-bottom));
+  }
+
+  .role-freelance .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9;
+    display: flex;
+    gap: 5px;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    border-top: 1px solid #ddd;
+    border-bottom: 0;
+    box-shadow: 0 -4px 22px #0000000d;
+  }
+
+  .role-freelance .mobile-nav button {
+    flex: 1 0 auto;
+    min-width: max-content;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 9px;
+  }
+
+  .role-freelance .mobile-nav button.selected {
+    background: #1a1a1a;
+    color: #fff;
+  }
+
+  .role-freelance .mobile-nav .nav-sign-out {
+    border-left: 1px solid var(--border);
+  }
+
+  .role-freelance .content {
+    padding-bottom: 35px;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-freelance .content {
+    padding: 19px 13px 24px;
+  }
+
+  .role-freelance .page-heading {
+    gap: 14px;
+    margin-bottom: 21px;
+  }
+
+  .role-freelance .page-heading h1 {
+    font-size: 25px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-freelance .sidebar nav button {
+    transition: none;
+  }
+}
+
+@media (min-width: 801px) {
+  .role-freelance .app-shell {
+    align-items: start;
+  }
+
+  .role-freelance .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #515151 #161616;
+  }
+}
+
+.role-freelance .nav-unread {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  background: #e8e8e8;
+  color: #141414;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  margin-left: 6px;
+  padding: 0 6px;
+}
+
+.role-freelance .sidebar nav button.selected .nav-unread,
+.role-freelance .mobile-nav button.selected .nav-unread {
+  background: #2a2a2a;
+  color: #fff;
+}

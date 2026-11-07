@@ -1,0 +1,53 @@
+.role-freelance .clock-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-freelance .clock-status {
+  color: #555;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.role-freelance .clock-locked {
+  color: #555;
+  font-size: 11px;
+  background: #eeeeee;
+  padding: 6px 9px;
+  border-radius: 7px;
+  white-space: normal;
+  max-width: 210px;
+}
+
+.role-freelance .attendance-summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-freelance .attendance-summary small {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 5px;
+}
+
+.role-freelance .attendance-row {
+  gap: 14px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .role-freelance .attendance-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .role-freelance .attendance-row .clock-actions {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .role-freelance .attendance-row .clock-actions button {
+    width: 100%;
+  }
+}

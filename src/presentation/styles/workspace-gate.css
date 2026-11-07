@@ -1,0 +1,58 @@
+.workspace-status {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.workspace-status-card {
+  width: min(100%, 460px);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.workspace-status-card h1 {
+  font-size: 22px;
+}
+
+.workspace-status-card button,
+.workspace-company-recovery button {
+  font: inherit;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.workspace-status-card button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workspace-status-card button:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 2px;
+}
+
+.workspace-company-recovery {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.workspace-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #ffffffdd;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+}

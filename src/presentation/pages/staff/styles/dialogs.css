@@ -1,0 +1,60 @@
+.role-staff .shift-notice-dialog {
+  width: min(520px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.role-staff .shift-notice-dialog::backdrop {
+  background: #20202080;
+}
+
+.role-staff .shift-notice-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.role-staff .shift-notice-header p {
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+
+.role-staff .shift-notice-header h2 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.role-staff .shift-notice-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+  margin: 0;
+}
+
+.role-staff .shift-notice-fields > div {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+
+.role-staff .shift-notice-fields > div:nth-child(-n + 2) {
+  grid-column: 1/-1;
+}
+
+.role-staff .shift-notice-fields dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.role-staff .shift-notice-fields dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}

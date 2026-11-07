@@ -1,0 +1,79 @@
+.role-admin .location-picker {
+  display: grid;
+  gap: 12px;
+  margin-top: 7px;
+}
+
+.role-admin .location-picker .form-grid {
+  margin: 0;
+}
+
+.role-admin .location-field {
+  display: block;
+}
+
+.role-admin .location-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: #444;
+}
+
+.role-admin .location-current {
+  font-size: 12px;
+  margin: 0;
+  color: #666;
+}
+
+.role-admin .location-clear {
+  justify-self: start;
+  padding-left: 0;
+}
+
+.role-admin .location-autocomplete {
+  position: relative;
+  min-width: 0;
+}
+
+.role-admin .location-autocomplete input {
+  width: 100%;
+}
+
+.role-admin .location-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 24px #00000018;
+  padding: 4px;
+}
+
+.role-admin .location-suggestions button {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: #fff;
+  color: #222;
+  text-align: left;
+  font: inherit;
+  white-space: normal;
+}
+
+.role-admin .location-suggestions button:hover,
+.role-admin .location-suggestions button:focus-visible {
+  background: #ededed;
+}
+
+.role-admin .location-suggestions button[aria-selected='true'] {
+  background: #e3e3e3;
+  font-weight: 700;
+}

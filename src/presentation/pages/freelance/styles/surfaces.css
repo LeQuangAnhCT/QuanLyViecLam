@@ -1,0 +1,150 @@
+.role-freelance .surface {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.role-freelance .section {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+.role-freelance .section > p,
+.role-freelance .section-title p {
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.role-freelance .section-title {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.role-freelance .section-title h2 {
+  margin-bottom: 4px;
+}
+
+.role-freelance .empty {
+  padding: 38px 10px;
+  text-align: center;
+  color: #737373;
+  font-size: 13px;
+}
+
+.role-freelance .empty h2 {
+  color: #333;
+}
+
+.role-freelance .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid #eaeae8;
+  padding: 15px 0;
+  font-size: 13px;
+}
+
+.role-freelance .row small {
+  display: block;
+  color: #666;
+  margin-top: 5px;
+  line-height: 1.5;
+}
+
+.role-freelance .row-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+
+.role-freelance .badge {
+  background: #ededeb;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: #454545;
+  white-space: nowrap;
+}
+
+.role-freelance .alert,
+.role-freelance .notice {
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+
+.role-freelance .alert {
+  background: #fff1f0;
+  color: #8b2424;
+  border: 1px solid #eabfbc;
+}
+
+.role-freelance .notice {
+  background: #eaf3ed;
+  color: #245837;
+  border: 1px solid #c3ddca;
+}
+
+@media (max-width: 520px) {
+  .role-freelance .section {
+    padding: 17px;
+  }
+
+  .role-freelance .row {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .role-freelance .row-actions {
+    flex-wrap: wrap;
+  }
+}
+
+.role-freelance .section,
+.role-freelance .section-title,
+.role-freelance .row,
+.role-freelance .row > div {
+  min-width: 0;
+}
+
+.role-freelance .row b,
+.role-freelance .row small,
+.role-freelance .alert,
+.role-freelance .notice {
+  overflow-wrap: anywhere;
+}
+
+.role-freelance .row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 520px) {
+  .role-freelance .section-title {
+    flex-wrap: wrap;
+  }
+
+  .role-freelance .row-actions {
+    justify-content: flex-start;
+  }
+}
+
+.role-freelance .surface {
+  border-radius: 13px;
+}
+
+@media (max-width: 600px) {
+  .role-freelance .section {
+    padding: 15px;
+  }
+}
+
+.role-freelance .notice {
+  background: #f0f0ef;
+  color: #272727;
+  border-color: #cececa;
+}

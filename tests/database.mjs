@@ -73,6 +73,24 @@ assert.equal((await workspaceRoles(company))[staff], 'freelance');
 await db.query("update public.member_compensation set employment_type='employee', monthly_base_vnd=8000000, show_rate_vnd=500000 where company_id=$1 and user_id=$2",[company,staff]);
 assert.deepEqual(await workspaceRoles(company), { [manager]:'manager', [staff]:'staff' });
 assert.deepEqual(await workspaceRoles(), {});
+// Role changes notify the affected worker. Wage-only updates do not duplicate notices.
+await db.exec('begin');
+await db.query("update public.member_compensation set employment_type='freelancer', monthly_base_vnd=null where company_id=$1 and user_id=$2", [company,staff]);
+await login(staff,'staff','staff@example.com');
+let roleNotices = (await db.query("select title,body from public.shift_notifications where event='employment_changed' order by title")).rows;
+assert.equal(roleNotices.length,2);
+assert.ok(roleNotices.some(notice => notice.title.endsWith('Freelance') && notice.body.includes('từ STAFF sang Freelance')));
+assert.ok(roleNotices.some(notice => notice.title.endsWith('STAFF')));
+await login(manager,'staff','manager@example.com');
+await db.query("update public.member_compensation set employment_type='freelancer', monthly_allowance_vnd=100000 where company_id=$1 and user_id=$2", [company,staff]);
+await login(staff,'staff','staff@example.com');
+assert.equal((await db.query("select id from public.shift_notifications where event='employment_changed'")).rows.length,2);
+await login(manager,'staff','manager@example.com');
+await db.query("update public.member_compensation set employment_type='employee', monthly_base_vnd=8000000 where company_id=$1 and user_id=$2", [company,staff]);
+await login(staff,'staff','staff@example.com');
+assert.equal((await db.query("select id from public.shift_notifications where event='employment_changed'")).rows.length,3);
+await db.exec('rollback');
+await login(manager,'staff','manager@example.com');
 await expectDenied(()=>db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at) values($1,$2,'Manager shift',now(),now()+interval '2 hours')",[company,manager]));
 await expectDenied(()=>db.query("insert into public.member_compensation(company_id,user_id,employment_type,monthly_base_vnd,show_rate_vnd) values($1,$2,'freelancer',1,500000)",[company,manager]));
 const firstShift = await db.query("insert into public.company_shifts(company_id,user_id,title,starts_at,ends_at,cast_vnd) values($1,$2,'Show',now(),now()+interval '4 hours',500000) returning id",[company,staff]);
@@ -186,7 +204,7 @@ assert.equal((await db.query('select is_active from public.company_members where
 await expectDenied(()=>db.query('delete from public.company_shifts where id=$1',[seasonalShift.rows[0].id]));
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.member_compensation')).rows.length,1);
-assert.deepEqual((await db.query('select event from public.shift_notifications')).rows.map(row=>row.event).sort(),['created','created','updated']);
+assert.deepEqual((await db.query('select event from public.shift_notifications')).rows.map(row=>row.event).sort(),['created','created','employment_changed','updated']);
 assert.equal((await db.query('update public.member_compensation set show_rate_vnd=1 returning *')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,2);
 await expectDenied(()=>db.query('select public.admin_set_account_disabled($1,true,$2)',[manager,'Không hợp lệ']));
@@ -229,5 +247,11 @@ assert.equal((await db.query('select role from public.admin_account_directory() 
 await login(staff,'staff','staff@example.com');
 assert.equal((await db.query('select * from public.admin_account_directory()')).rows.length,0);
 assert.equal((await db.query('select * from public.company_shifts')).rows.length,3);
+// Upgrade scripts remain repeatable after durable role notices have been stored.
+await db.exec('reset role');
+const noticeCount = (await db.query('select count(*)::int as total from public.shift_notifications')).rows[0].total;
+await db.exec(await readFile(new URL('../supabase/manager_notifications.sql',import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../supabase/staff_role_notifications.sql',import.meta.url),'utf8'));
+assert.equal((await db.query('select count(*)::int as total from public.shift_notifications')).rows[0].total,noticeCount);
 await db.close();
 console.log('Database workspace roles, Manager-only employment changes, payroll privacy and attendance: OK');

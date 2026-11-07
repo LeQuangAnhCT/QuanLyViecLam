@@ -1,0 +1,4 @@
+/* Document, sign-in and role routing only. Each role owns its page styles. */
+@import './base.css';
+@import './auth.css';
+@import './workspace-gate.css';

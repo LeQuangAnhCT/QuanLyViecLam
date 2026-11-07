@@ -1,0 +1,80 @@
+.role-manager .no-staff-hint {
+  padding: 10px 0;
+}
+
+.role-manager .no-staff-hint p {
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.role-manager .no-staff-hint button {
+  border-color: #222;
+  color: #222;
+}
+
+.role-manager .shift-picker-dialog {
+  width: min(440px, 100%);
+}
+
+.role-manager .shift-picker .row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.role-manager .shift-picker .row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-manager .shift-picker .row button {
+  flex-shrink: 0;
+}
+
+.role-manager .shift-picker-lock {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.role-manager .shift-picker .form-actions {
+  margin-top: 18px;
+}
+
+.role-manager .shift-picker .form-actions .danger-quiet {
+  margin-left: 0;
+}
+
+.role-manager .shift-picker .form-actions button {
+  min-height: 44px;
+}
+
+.role-manager .cast-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -8px;
+}
+
+.role-manager .cast-presets button {
+  flex: 0 0 auto;
+  min-width: 64px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fff;
+  color: #222;
+  font-weight: 650;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.role-manager .cast-presets button:hover,
+.role-manager .cast-presets button:focus-visible {
+  border-color: #444;
+  background: #f1f1f1;
+}
+
+.role-manager .cast-presets button.selected {
+  background: #171717;
+  border-color: #171717;
+  color: #fff;
+}

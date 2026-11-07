@@ -1,0 +1,73 @@
+.role-staff .payroll-month-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.role-staff .payroll-month-controls b {
+  font-size: 12px;
+  min-width: 114px;
+  text-align: center;
+}
+
+.role-staff .payroll-kpis {
+  margin-top: 14px;
+}
+
+.role-staff .income-section .worked-duration {
+  font-size: clamp(16px, 1.8vw, 24px);
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-staff .payroll-money {
+  font-size: clamp(15px, 2vw, 26px) !important;
+  overflow-wrap: anywhere;
+  line-height: 1.2 !important;
+}
+
+.role-staff .payroll-type {
+  font-size: clamp(17px, 2vw, 26px) !important;
+}
+
+.role-staff .payroll-disclaimer {
+  margin: 17px 0 0;
+  color: #777;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.role-staff .income-rates {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+}
+
+.role-staff .income-rates p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 650px) {
+  .role-staff .payroll-month-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .role-staff .income-section .section-title {
+    flex-wrap: wrap;
+  }
+
+  .role-staff .payroll-kpis .overview-tile {
+    min-height: 114px;
+  }
+
+  .role-staff .payroll-type {
+    font-size: 16px !important;
+  }
+
+  .role-staff .payroll-money {
+    font-size: 14px !important;
+  }
+}

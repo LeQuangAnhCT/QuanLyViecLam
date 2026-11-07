@@ -1,0 +1,105 @@
+.role-freelance input,
+.role-freelance select {
+  font: inherit;
+}
+
+.role-freelance input:focus-visible,
+.role-freelance select:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 2px;
+}
+
+.role-freelance label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: #444;
+}
+
+.role-freelance input,
+.role-freelance select {
+  width: 100%;
+  display: block;
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid #c8c8c6;
+  border-radius: 6px;
+  color: #222;
+  background: #fff;
+  min-height: 40px;
+}
+
+.role-freelance input::placeholder {
+  color: #757575;
+}
+
+.role-freelance .form {
+  display: grid;
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.role-freelance .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.role-freelance .form-section {
+  max-width: 760px;
+}
+
+.role-freelance .check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.role-freelance .check input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+}
+
+.role-freelance fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.role-freelance fieldset .check {
+  margin: 9px 0;
+}
+
+.role-freelance legend {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-freelance .form-actions {
+  display: flex;
+  justify-content: end;
+  gap: 9px;
+}
+
+@media (max-width: 520px) {
+  .role-freelance .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.role-freelance .form-grid > label {
+  min-width: 0;
+}
+
+.role-freelance .form-actions {
+  flex-wrap: wrap;
+}
+
+.role-freelance input[type='search'] {
+  appearance: none;
+}

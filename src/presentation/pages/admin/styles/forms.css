@@ -1,0 +1,81 @@
+.role-admin input,
+.role-admin select {
+  font: inherit;
+}
+
+.role-admin input:focus-visible,
+.role-admin select:focus-visible {
+  outline: 3px solid #777;
+  outline-offset: 2px;
+}
+
+.role-admin label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  color: #444;
+}
+
+.role-admin input,
+.role-admin select {
+  width: 100%;
+  display: block;
+  margin-top: 7px;
+  padding: 10px 11px;
+  border: 1px solid #c8c8c6;
+  border-radius: 6px;
+  color: #222;
+  background: #fff;
+  min-height: 40px;
+}
+
+.role-admin input::placeholder {
+  color: #757575;
+}
+
+.role-admin .form {
+  display: grid;
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.role-admin .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.role-admin fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.role-admin legend {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.role-admin .form-actions {
+  display: flex;
+  justify-content: end;
+  gap: 9px;
+}
+
+@media (max-width: 520px) {
+  .role-admin .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.role-admin .form-grid > label {
+  min-width: 0;
+}
+
+.role-admin .form-actions {
+  flex-wrap: wrap;
+}
+
+.role-admin input[type='search'] {
+  appearance: none;
+}

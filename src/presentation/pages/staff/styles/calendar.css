@@ -1,0 +1,582 @@
+.role-staff .calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.role-staff .calendar-controls h2 {
+  font-size: 20px;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.role-staff .calendar-controls p {
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.role-staff .calendar-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.role-staff .calendar {
+  min-width: 760px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.role-staff .weekday {
+  padding: 12px;
+  color: #696969;
+  font-size: 11px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.role-staff .day {
+  min-height: 112px;
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  min-width: 0;
+}
+
+.role-staff .day.blank {
+  background: #f8f8f7;
+}
+
+.role-staff .day-button {
+  border: 0;
+  border-radius: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  display: block;
+  text-align: left;
+  padding: 10px;
+  background: transparent;
+  white-space: normal;
+}
+
+.role-staff .day-number {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+@media (max-width: 520px) {
+  .role-staff .calendar-controls {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+.role-staff .calendar-wrap {
+  overscroll-behavior-inline: contain;
+}
+
+.role-staff .day-button {
+  vertical-align: top;
+}
+
+@media (max-width: 520px) {
+  .role-staff .calendar {
+    min-width: 700px;
+  }
+}
+
+.role-staff .calendar-wrap {
+  border-radius: 13px;
+}
+
+.role-staff .calendar {
+  min-width: 0;
+}
+
+.role-staff .calendar .weekday {
+  text-align: center;
+  padding: 12px 3px;
+  background: #fafafa;
+}
+
+.role-staff .calendar .day {
+  min-height: 108px;
+  transition: background 0.12s;
+}
+
+.role-staff .calendar .day:hover:not(.blank) {
+  background: #fafafa;
+}
+
+.role-staff .calendar .day.active {
+  background: #efefef;
+  box-shadow: inset 0 0 0 2px #191919;
+}
+
+.role-staff .calendar .day.active .day-number {
+  color: #111;
+}
+
+.role-staff .calendar .day-button {
+  min-height: 108px;
+  outline-offset: -3px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.role-staff .calendar .day-number {
+  align-self: flex-start;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.role-staff .calendar .day-button:focus-visible {
+  outline: 2px solid #444;
+  outline-offset: -3px;
+}
+
+.role-staff .calendar .day-button[aria-current='date'] .day-number {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fafafa;
+}
+
+.role-staff .day-shift-count {
+  display: none;
+}
+
+.role-staff .day-detail {
+  margin-top: 15px;
+}
+
+.role-staff .day-detail .section-title {
+  align-items: center;
+  margin-bottom: 13px;
+}
+
+.role-staff .day-detail .section-title p {
+  margin: 5px 0 0;
+}
+
+.role-staff .day-empty {
+  padding: 23px 12px;
+}
+
+.role-staff .shift-detail-row {
+  justify-content: flex-start;
+  gap: 20px;
+}
+
+.role-staff .shift-timing {
+  width: 128px;
+  flex-shrink: 0;
+}
+
+.role-staff .shift-timing strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.role-staff .shift-description {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-staff .shift-description b {
+  display: block;
+}
+
+.role-staff .shift-description small {
+  overflow-wrap: anywhere;
+}
+
+.role-staff .calendar-controls .button-group button {
+  min-width: 44px;
+}
+
+@media (max-width: 800px) {
+  .role-staff .calendar {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-staff .calendar-controls {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .role-staff .calendar-controls h2 {
+    font-size: 16px;
+  }
+
+  .role-staff .calendar-controls p {
+    display: none;
+  }
+
+  .role-staff .calendar-controls .button-group {
+    gap: 4px;
+  }
+
+  .role-staff .calendar-controls .button-group button {
+    padding: 8px 7px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .role-staff .calendar .weekday {
+    font-size: 10px;
+    padding: 10px 0;
+  }
+
+  .role-staff .calendar .day {
+    min-height: 56px;
+  }
+
+  .role-staff .calendar .day-button {
+    min-height: 56px;
+    padding: 6px 2px;
+    text-align: center;
+    align-items: center;
+  }
+
+  .role-staff .calendar .day-number {
+    align-self: center;
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .role-staff .calendar .day-shift-count {
+    display: block;
+    margin: 4px auto 0;
+    max-width: 38px;
+    font-size: 9px;
+    line-height: 1.25;
+    color: #fff;
+    background: #252525;
+    border-radius: 5px;
+    padding: 2px 1px;
+  }
+
+  .role-staff .calendar .day.active {
+    box-shadow: inset 0 0 0 2px #222;
+  }
+
+  .role-staff .calendar .day.blank {
+    background: #fafafa;
+  }
+
+  .role-staff .day-detail {
+    margin-top: 12px;
+  }
+
+  .role-staff .day-detail .section-title {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .role-staff .day-detail .section-title button {
+    min-height: 40px;
+  }
+
+  .role-staff .shift-detail-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 10px;
+  }
+
+  .role-staff .shift-timing {
+    width: auto;
+    grid-column: 1 / -1;
+  }
+
+  .role-staff .shift-description {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 360px) {
+  .role-staff .calendar .day-button {
+    padding: 5px 0;
+  }
+
+  .role-staff .calendar .day-number {
+    font-size: 11px;
+  }
+
+  .role-staff .calendar .day-shift-count {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .role-staff .calendar .day {
+    transition: none;
+  }
+}
+
+.role-staff .calendar-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (min-width: 801px) {
+  .role-staff .calendar-controls {
+    align-items: center;
+  }
+
+  .role-staff .day-detail .section-title {
+    align-items: center;
+  }
+}
+
+@media (max-width: 800px) {
+  .role-staff .calendar-tools {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-staff .calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .role-staff .calendar-controls p {
+    display: block;
+    font-size: 11px;
+  }
+
+  .role-staff .calendar-tools {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .role-staff .calendar-tools .button-group {
+    flex: 1;
+  }
+}
+
+.role-staff .calendar .day:not(.blank) .day-button {
+  cursor: pointer;
+}
+
+.role-staff .calendar .day:not(.blank):hover .day-button {
+  background: #f0f0f0;
+}
+
+.role-staff .calendar .day:not(.blank).active .day-button {
+  background: transparent;
+}
+
+.role-staff .calendar-controls p {
+  max-width: 420px;
+}
+
+.role-staff .staff-calendar-summary {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.role-staff .staff-calendar-summary .overview-tile {
+  min-height: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.role-staff .staff-calendar-summary .overview-tile + .overview-tile {
+  border-left: 1px solid var(--border);
+}
+
+.role-staff .staff-calendar-summary .overview-tile strong {
+  font-size: 24px;
+  margin: 3px 0 0;
+}
+
+.role-staff .staff-calendar-summary .overview-tile small {
+  display: none;
+}
+
+.role-staff .staff-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.role-staff .staff-calendar-layout .calendar-controls {
+  flex-wrap: wrap;
+}
+
+.role-staff .staff-calendar-layout .calendar .day,
+.role-staff .staff-calendar-layout .calendar .day:not(.blank) .day-button {
+  min-height: 52px;
+}
+
+.role-staff .staff-calendar-layout .calendar .day-button {
+  align-items: center;
+  text-align: center;
+  padding: 4px 1px;
+}
+
+.role-staff .staff-calendar-layout .calendar .day-number {
+  align-self: center;
+  margin: 0;
+}
+
+.role-staff .staff-calendar-layout .calendar .day-shift-count {
+  display: block;
+  margin: 0;
+  color: #414141;
+  background: none;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.role-staff .staff-calendar-layout .calendar .day.has-shifts:not(.active) {
+  background: #f0f0ee;
+}
+
+.role-staff .staff-day-detail {
+  margin-top: 0;
+}
+
+.role-staff .staff-day-detail h2 {
+  font-size: 19px;
+  scroll-margin-top: 14px;
+}
+
+.role-staff .staff-day-detail .section-title {
+  align-items: flex-start;
+}
+
+.role-staff .staff-day-detail .shift-detail-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 14px 0;
+}
+
+.role-staff .staff-day-detail .shift-timing {
+  width: auto;
+}
+
+.role-staff .staff-day-detail .shift-timing strong {
+  font-size: 18px;
+}
+
+.role-staff .staff-day-detail .shift-description {
+  grid-column: auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-staff .staff-day-detail .shift-description b {
+  font-size: 15px;
+}
+
+.role-staff .staff-day-detail .clock-actions {
+  margin: 4px 0 0;
+  justify-content: space-between;
+}
+
+.role-staff .staff-day-detail .clock-actions button,
+.role-staff .staff-return-calendar {
+  min-height: 44px;
+}
+
+.role-staff .staff-return-calendar {
+  display: none;
+}
+
+@media (max-width: 1050px) {
+  .role-staff .staff-calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .role-staff .staff-return-calendar {
+    display: block;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .role-staff .staff-calendar-summary .overview-tile {
+    padding: 9px;
+  }
+
+  .role-staff .staff-calendar-summary .overview-tile strong {
+    font-size: 20px;
+  }
+
+  .role-staff .staff-calendar-layout .calendar-controls {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .role-staff .staff-day-detail .clock-actions button {
+    width: 100%;
+  }
+}
+
+.role-staff .shift-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.role-staff .shift-actions button {
+  min-height: 36px;
+}
+
+@media (max-width: 600px) {
+  .role-staff .shift-actions {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .role-staff .shift-detail-row .shift-actions {
+    grid-column: 1/-1;
+  }
+
+  .role-staff .shift-actions button {
+    flex: 1;
+  }
+
+  .role-staff .calendar .day:not(.blank) .day-button {
+    min-height: 56px;
+  }
+}
+
+.role-staff .shift-actions button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .role-staff .shift-actions .clock-locked {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}

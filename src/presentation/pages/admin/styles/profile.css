@@ -1,0 +1,115 @@
+.role-admin .workspace-profile small {
+  display: block;
+  color: #6e6e6e;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.role-admin .workspace-profile {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding: 14px 0 0;
+  min-width: 0;
+}
+
+.role-admin .workspace-profile b {
+  font-size: 12px;
+}
+
+.role-admin .workspace-profile small {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 800px) {
+  .role-admin .mobile-header .workspace-profile {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+}
+
+.role-admin .sidebar .workspace-profile b {
+  color: #fff;
+}
+
+.role-admin .sidebar .workspace-profile small {
+  color: #a5a5a5;
+}
+
+.role-admin .sidebar .workspace-profile {
+  border-top-color: #353535;
+}
+
+.role-admin .workspace-profile > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.role-admin .profile-avatar {
+  display: block;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #e4e6eb;
+}
+
+.role-admin .profile-avatar-large {
+  width: 96px;
+  height: 96px;
+  margin-bottom: 16px;
+}
+
+.role-admin .profile-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.role-admin .profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.role-admin .workspace-profile .profile-name {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.role-admin .profile-role {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 22px;
+  padding: 3px 6px;
+  border: 1px solid var(--ink);
+  border-radius: 5px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.role-admin .sidebar .profile-role {
+  background: #f4f4f3;
+  border-color: #f4f4f3;
+  color: #202020;
+}
+
+.role-admin .workspace-profile .profile-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
