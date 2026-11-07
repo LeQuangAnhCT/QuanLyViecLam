@@ -11,6 +11,9 @@ import {
 } from 'vue'
 import {
   localDate,
+  vietnamDate,
+  vietnamTime,
+  vietnamDateTime,
   roleLabel,
   workerRole,
   shiftRows,
@@ -72,9 +75,9 @@ const {
 
 const tab = ref('calendar')
 
-const month = ref(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+const month = ref(new Date(`${vietnamDate(new Date()).slice(0, 7)}-01T12:00:00`))
 
-const selectedDate = ref(localDate(new Date()))
+const selectedDate = ref(vietnamDate(new Date()))
 
 const modal = ref('')
 
@@ -326,8 +329,8 @@ async function saveAccountProfile() {
 const shift = reactive({
   title: '',
   location: '',
-  date: localDate(new Date()),
-  end_date: localDate(new Date()),
+  date: vietnamDate(new Date()),
+  end_date: vietnamDate(new Date()),
   start: '08:00',
   end: '12:00',
   cast_vnd: 300000,
@@ -553,19 +556,18 @@ function savePay() {
 }
 
 function shiftsForDate(dateText, schedule = shifts.value) {
-  const start = new Date(dateText + 'T00:00:00')
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
+  const start = vietnamDateTime(dateText, '00:00')
+  const end = new Date(start.getTime() + 24 * 3600000)
   return schedule.filter((s) => new Date(s.starts_at) < end && new Date(shiftEndFor(s)) > start)
 }
 
 const shiftsOn = (day) =>
-  shiftsForDate(localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day)))
+  shiftsForDate(dateForDay(day))
 
 const monthShifts = computed(() =>
   shifts.value.filter((s) => {
-    const d = new Date(s.starts_at)
-    return d.getFullYear() === month.value.getFullYear() && d.getMonth() === month.value.getMonth()
+    const ym = `${month.value.getFullYear()}-${String(month.value.getMonth() + 1).padStart(2, '0')}`
+    return vietnamDate(s.starts_at).slice(0, 7) === ym
   })
 )
 
@@ -606,7 +608,7 @@ const attendedDayMessage = 'Ngày này đã có chấm công nên không thể t
 const selectedDayAddBlock = computed(() =>
   selectedDayHasAttendance.value
     ? attendedDayMessage
-    : selectedDate.value < localDate(new Date())
+    : selectedDate.value < vietnamDate(new Date())
       ? 'Chỉ có thể phân ca với giờ bắt đầu trong tương lai.'
       : ''
 )
@@ -620,13 +622,11 @@ const selectedDateLabel = computed(() =>
   })
 )
 
-const timeOf = (stamp) =>
-  new Date(stamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+const timeOf = vietnamTime
 
 function isMorningShift(start, end) {
-  const noon = new Date(start)
-  noon.setHours(12, 0, 0, 0)
-  return end > start && start < noon && end <= noon
+  return end > start && vietnamDate(start) === vietnamDate(end) &&
+    vietnamTime(start) < '12:00' && vietnamTime(end) <= '12:00'
 }
 
 function assignedShiftText(item) {
@@ -637,8 +637,8 @@ function assignedShiftText(item) {
 }
 
 const morningAssignments = computed(() => {
-  const start = new Date(`${shift.date}T${shift.start}`)
-  const end = new Date(`${shift.end_date}T${shift.end}`)
+  const start = vietnamDateTime(shift.date, shift.start)
+  const end = vietnamDateTime(shift.end_date, shift.end)
   if (!isMorningShift(start, end)) return []
   const editingIds = new Set(editingCrew.value.map((item) => item.id))
   return shifts.value.filter((item) => {
@@ -654,7 +654,7 @@ const morningAssignments = computed(() => {
 const dateForDay = (day) =>
   localDate(new Date(month.value.getFullYear(), month.value.getMonth(), day))
 
-const isToday = (day) => dateForDay(day) === localDate(new Date())
+const isToday = (day) => dateForDay(day) === vietnamDate(new Date())
 
 const dayAction = (day) => (shiftsOn(day).length ? 'Quản lý ca trong ngày' : 'Phân ca mới')
 
@@ -683,14 +683,14 @@ function editShift(item) {
   if (shiftHasEnded(item, scheduleNow.value)) return
   const start = new Date(item.starts_at),
     end = new Date(item.ends_at)
-  selectedDate.value = localDate(start)
-  month.value = new Date(start.getFullYear(), start.getMonth(), 1)
+  selectedDate.value = vietnamDate(start)
+  month.value = new Date(`${vietnamDate(start).slice(0, 7)}-01T12:00:00`)
   editingShiftId.value = item.id
   Object.assign(shift, {
     title: item.title,
     location: item.location || '',
-    date: localDate(start),
-    end_date: localDate(end),
+    date: vietnamDate(start),
+    end_date: vietnamDate(end),
     start: inputTime(start),
     end: inputTime(end),
     cast_vnd: Number(item.cast_vnd || 0),
@@ -701,8 +701,8 @@ function editShift(item) {
 }
 
 function goToToday() {
-  month.value = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  selectedDate.value = localDate(new Date())
+  month.value = new Date(`${vietnamDate(new Date()).slice(0, 7)}-01T12:00:00`)
+  selectedDate.value = vietnamDate(new Date())
 }
 
 function createShiftOnSelectedDay() {
@@ -739,8 +739,7 @@ function openShift(day) {
   modal.value = 'shift'
 }
 
-const inputTime = (date) =>
-  [date.getHours(), date.getMinutes()].map((value) => String(value).padStart(2, '0')).join(':')
+const inputTime = vietnamTime
 
 const shiftPeriods = {
   morning: ['08:00', '12:00'],
@@ -834,7 +833,7 @@ async function saveShift() {
     }
     clockRecords.value = attendance || []
     const attendedIds = new Set(clockRecords.value.map((record) => record.shift_id))
-    const workEndDate = localDate(new Date(Date.parse(work.ends_at) - 1))
+    const workEndDate = vietnamDate(new Date(Date.parse(work.ends_at) - 1))
     if (
       [date, workEndDate].some((day) =>
         shiftsForDate(day, schedule).some((item) => attendedIds.has(item.id))
@@ -1337,11 +1336,11 @@ onUnmounted(() => {
                       <strong>
                         {{ timeOf(item.starts_at) }} - {{ timeOf(shiftEndFor(item)) }}
                       </strong>
-                      <small v-if="localDate(new Date(item.starts_at)) !== selectedDate">
-                        Bắt đầu ngày {{ localDate(new Date(item.starts_at)) }}
+                      <small v-if="vietnamDate(item.starts_at) !== selectedDate">
+                        Bắt đầu ngày {{ vietnamDate(item.starts_at) }}
                       </small>
-                      <small v-if="localDate(new Date(shiftEndFor(item))) !== selectedDate">
-                        Kết thúc ngày {{ localDate(new Date(shiftEndFor(item))) }}
+                      <small v-if="vietnamDate(shiftEndFor(item)) !== selectedDate">
+                        Kết thúc ngày {{ vietnamDate(shiftEndFor(item)) }}
                       </small>
                       <small v-if="shiftEndFor(item) !== item.ends_at">
                         Dự kiến kết thúc {{ timeOf(item.ends_at) }}
